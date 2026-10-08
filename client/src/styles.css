@@ -553,7 +553,8 @@ kbd {
 
 .game__arena {
   display: grid;
-  grid-template-columns: minmax(210px, 270px) auto minmax(0, 1fr);
+  /* chaque adversaire garde une vignette lisible : sur un écran moyen, c'est ma tour qui rétrécit un peu */
+  grid-template-columns: minmax(190px, 270px) minmax(0, auto) minmax(calc(var(--rivals, 1) * 124px), 1fr);
   grid-template-areas: 'side main rivals';
   gap: clamp(0.8rem, 1.6vw, 1.6rem);
   min-height: 0;
@@ -574,6 +575,7 @@ kbd {
   position: relative;
   container-type: inline-size;
   aspect-ratio: 13 / 19;
+  min-width: 0;
   max-width: 100%;
   background: var(--mur);
   border: 3px solid var(--choco);
@@ -633,6 +635,28 @@ kbd {
   grid-row: span 4;
 }
 
+.mine__score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.5rem;
+}
+
+/* rang dans la manche : la plus haute tour est « en tête » */
+
+.place {
+  padding: 0.05em 0.55em;
+  font: 700 0.78rem/1.5 var(--font-text);
+  white-space: nowrap;
+  background: #fff;
+  border: 2px solid var(--choco);
+  border-radius: 99px;
+}
+
+.place.is-first {
+  background: var(--citron);
+}
+
 .mine__name {
   font: 400 1.35rem/1.1 var(--font-display);
   overflow-wrap: anywhere;
@@ -677,6 +701,7 @@ kbd {
 .hand {
   display: grid;
   gap: 0.6rem;
+  min-width: 0;
 }
 
 .hand--empty {
@@ -694,6 +719,45 @@ kbd {
   font: 500 0.85rem var(--font-text);
 }
 
+.hand__or {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-block: -0.2rem;
+  font: 400 1rem/1 var(--font-display);
+}
+
+.hand__or::before,
+.hand__or::after {
+  content: '';
+  flex: 1;
+  border-top: 2px dashed rgb(58 35 23 / 0.4);
+}
+
+/* aide-mémoire : visible tant qu'on n'a pas de carte en main */
+
+.help {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  background: rgb(255 244 220 / 0.7);
+  border: 2px dashed rgb(58 35 23 / 0.4);
+  border-radius: 16px;
+}
+
+.help .keys {
+  padding-top: 0.6rem;
+  font-size: 0.85rem;
+}
+
+@media (pointer: coarse) {
+  .help .keys {
+    display: none;
+  }
+}
+
 .card {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -703,6 +767,7 @@ kbd {
   text-align: left;
   border: var(--line);
   border-radius: 16px;
+  min-width: 0;
   animation: deal 380ms var(--ease-pop) both;
 }
 
@@ -725,6 +790,13 @@ kbd {
 .card--malus {
   background: color-mix(in srgb, var(--framboise) 17%, #fff);
   animation-delay: 70ms;
+}
+
+.card__kind {
+  grid-column: 1 / -1;
+  font: 700 0.72rem/1.2 var(--font-text);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .card__text {
@@ -771,6 +843,19 @@ kbd {
   background: var(--creme);
 }
 
+.card__target-floors {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* sur petit écran, on vise en touchant directement la vignette de l'adversaire */
+.card__hint {
+  display: none;
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 @keyframes deal {
   from {
     opacity: 0;
@@ -778,23 +863,27 @@ kbd {
   }
 }
 
-/* adversaires */
+/* adversaires : toutes les vignettes sont à la même échelle, du présentoir à la
+   ligne de service, pour comparer les tours d'un coup d'œil */
 
 .game__rivals {
   grid-area: rivals;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 250px);
+  /* largeur bornée par la hauteur disponible : la vignette garde ses proportions */
+  grid-auto-columns: minmax(0, min(280px, calc((100dvh - 17rem) * 9 / 24)));
   gap: 0.8rem;
   align-content: start;
+  justify-content: start;
   min-height: 0;
   padding: 2px 4px 8px;
 }
 
 .rival {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.35rem;
   align-self: start;
+  min-width: 0;
   padding: 0.5rem;
   text-align: left;
   background: var(--creme);
@@ -810,16 +899,24 @@ kbd {
 
 .rival.is-target {
   cursor: crosshair;
-  outline: 3px dashed var(--framboise);
-  outline-offset: 3px;
-  animation: target 900ms ease-in-out infinite alternate;
+}
+
+.rival.is-target:hover {
+  transform: translateY(-2px);
 }
 
 .rival.is-out .tower {
   filter: grayscale(0.8);
 }
 
-@keyframes target {
+/* un adversaire tient la ligne : c'est lui qu'il faut gêner, tout de suite */
+.rival.is-holding {
+  outline: 4px solid var(--framboise);
+  outline-offset: 2px;
+  animation: alarm 500ms ease-in-out infinite alternate;
+}
+
+@keyframes alarm {
   to {
     outline-offset: 6px;
   }
@@ -827,39 +924,70 @@ kbd {
 
 .rival__head {
   display: grid;
-  grid-template-columns: auto auto 1fr;
-  gap: 0.15rem 0.4rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0 0.4rem;
   align-items: center;
-}
-
-.rival__head .wins {
-  grid-column: 3;
-}
-
-.rival__name {
-  font-weight: 700;
-  line-height: 1.15;
-  overflow-wrap: anywhere;
 }
 
 .rival__head .avatar {
   grid-row: span 2;
 }
 
-.rival__key {
-  grid-row: span 2;
+.rival__name {
+  font: 400 1.1rem/1.15 var(--font-display);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rival > * {
+  min-width: 0;
+}
+
+/* les cerises de l'adversaire sont posées sur sa vignette, au pied du présentoir */
+.rival__view .cherries {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  padding: 1px 4px 0;
+  background: var(--creme);
+  border: 2px solid var(--choco);
+  border-radius: 99px;
+}
+
+.rival .cherry {
+  width: 17px;
+  height: 17px;
+}
+
+.rival__score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  min-height: 1.9rem;
+}
+
+.rival__score .floors strong {
+  font-size: 1.6rem;
+}
+
+.rival__score .floors {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rival__view {
   position: relative;
-  aspect-ratio: 13 / 18;
+  aspect-ratio: 9 / 24;
   background: var(--mur);
   border: 2px solid var(--choco);
   border-radius: 10px;
   overflow: hidden;
 }
 
-.rival__out {
+.rival__out,
+.rival__alert {
   position: absolute;
   inset: auto 0 38%;
   padding: 0.25em;
@@ -870,12 +998,71 @@ kbd {
   transform: rotate(-4deg) scale(1.05);
 }
 
-.rival__foot {
+.rival__alert {
+  inset: 26% 0 auto;
+  color: var(--creme);
+  background: var(--framboise);
+}
+
+/* ce que l'adversaire subit en ce moment */
+.rival__status {
   display: flex;
   flex-wrap: wrap;
+  align-content: start;
+  gap: 0.2rem;
+  /* deux rangées réservées : les vignettes restent alignées quand un effet arrive */
+  height: 3.1rem;
+  overflow: hidden;
+}
+
+.chip {
+  padding: 0.05em 0.6em;
+  font: 700 0.74rem/1.5 var(--font-text);
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--pistache) 26%, #fff);
+  border: 2px solid var(--choco);
+  border-radius: 99px;
+}
+
+.chip--bad {
+  background: color-mix(in srgb, var(--framboise) 24%, #fff);
+}
+
+/* bandeau de visée : s'allume quand un malus est prêt */
+.rival__aim {
+  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.2rem 0.5rem;
+  gap: 0.45rem;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--creme);
+  background: var(--framboise);
+  border: 2px solid var(--choco);
+  border-radius: 10px;
+  box-shadow: 0 3px 0 var(--choco);
+  animation: aim 700ms ease-in-out infinite alternate;
+}
+
+.rival__aim kbd {
+  flex: none;
+  color: var(--choco);
+}
+
+.rival__aim.is-idle {
+  color: rgb(58 35 23 / 0.7);
+  font-weight: 500;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+@keyframes aim {
+  to {
+    transform: translateY(-3px);
+  }
 }
 
 /* annonces, décompte */
@@ -903,11 +1090,30 @@ kbd {
   border-left: 10px solid var(--c);
   border-radius: 14px;
   box-shadow: var(--lift);
-  animation: toast 3400ms both;
+  animation: toast 4200ms both;
 }
 
 .toast--malus {
   background: color-mix(in srgb, var(--framboise) 14%, var(--creme));
+}
+
+.toast__text {
+  display: grid;
+}
+
+.toast__detail {
+  font: 600 0.82rem/1.3 var(--font-text);
+}
+
+/* ce qui m'arrive à moi se lit en premier */
+.toast--mine {
+  font-size: 1.25rem;
+  border-width: 3px;
+  border-left-width: 12px;
+}
+
+.toast--mine .toast__detail {
+  font-size: 0.95rem;
 }
 
 @keyframes toast {
@@ -1181,6 +1387,18 @@ kbd {
   }
 }
 
+/* --- écrans moyens : à trois adversaires, le nom passe avant la frimousse --- */
+
+@media (max-width: 1180px) {
+  .rival__head .avatar {
+    display: none;
+  }
+
+  .rival__head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* --- écrans étroits -------------------------------------------------------- */
 
 @media (max-width: 900px) {
@@ -1223,6 +1441,7 @@ kbd {
 
   .game__rivals {
     grid-auto-columns: minmax(0, 1fr);
+    justify-content: stretch;
     gap: 0.4rem;
     padding: 0;
   }
@@ -1233,18 +1452,71 @@ kbd {
     box-shadow: none;
   }
 
+  .rival {
+    gap: 0.2rem;
+  }
+
   .rival__view {
-    aspect-ratio: 13 / 9;
+    aspect-ratio: 10 / 8;
   }
 
   .rival__head .avatar,
   .rival__head .wins,
-  .rival__foot .floors {
+  .rival__aim.is-idle,
+  .rival__aim kbd,
+  .floors__goal,
+  .toast--info .toast__detail,
+  .help {
     display: none;
   }
 
+  .toast--mine {
+    font-size: 1.05rem;
+  }
+
+  .rival__aim {
+    justify-content: center;
+    padding: 0.15rem 0.3rem;
+  }
+
+  .rival__status {
+    flex-wrap: nowrap;
+    height: 1.5rem;
+  }
+
+  .chip {
+    font-size: 0.68rem;
+  }
+
+  .rival .cherry {
+    width: 13px;
+    height: 13px;
+  }
+
   .rival__head {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: 1fr;
+  }
+
+  .rival__name,
+  .rival__aim {
+    font-size: 0.85rem;
+  }
+
+  .rival__score .floors strong {
+    font-size: 1.2rem;
+  }
+
+  .hand__or,
+  .card__kind {
+    display: none;
+  }
+
+  .card__targets {
+    display: none;
+  }
+
+  .card__hint {
+    display: block;
   }
 
   .game__side {

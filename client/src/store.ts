@@ -11,12 +11,16 @@ import type {
 } from '../../shared/protocol';
 import { AVATARS, RULES, type AvatarId, type CardId } from '../../shared/rules';
 import { isMuted, play, playCard, setMuted } from './game/audio';
-import { GameSession, type Mood } from './game/session';
+import { GameSession, type Mood, type Status } from './game/session';
 import { CARDS, playerColor } from './theme';
 
 export interface Announcement {
   id: number;
   text: string;
+  /** ce que ça change, en clair */
+  detail: string | null;
+  /** l'annonce me concerne directement */
+  mine: boolean;
   card: CardId | null;
   kind: 'bonus' | 'malus' | 'info';
   color: number | null;
@@ -35,6 +39,8 @@ export interface AppState {
   offers: Offer[];
   announcements: Announcement[];
   moods: Record<string, Mood>;
+  /** effets en cours chez chaque adversaire */
+  statuses: Record<string, Status[]>;
   /** instant (performance.now) où la manche démarre, pendant le décompte */
   countdownUntil: number | null;
   muted: boolean;
@@ -44,7 +50,7 @@ const NAME_KEY = 'chou.pseudo';
 const AVATAR_KEY = 'chou.avatar';
 const TOKEN_KEY = 'chou.jeton';
 const ROOM_KEY = 'chou.salon';
-const ANNOUNCEMENT_MS = 3400;
+const ANNOUNCEMENT_MS = 4200;
 const MAX_ANNOUNCEMENTS = 3;
 const REPLY_TIMEOUT_MS = 8000;
 
@@ -98,6 +104,7 @@ let state: AppState = {
   offers: [],
   announcements: [],
   moods: {},
+  statuses: {},
   countdownUntil: null,
   muted: isMuted(),
 };
@@ -123,7 +130,7 @@ const socket: Socket<ServerToClient, ClientToServer> = io({ transports: ['websoc
 export const session = new GameSession({
   sendState: (towerState) => socket.volatile.emit('state', towerState),
   brickLost: () => socket.emit('brick:lost'),
-  moods: (moods) => setState({ moods }),
+  hud: (moods, statuses) => setState({ moods, statuses }),
 });
 
 // --- utilitaires -----------------------------------------------------------
@@ -139,10 +146,11 @@ export function opponents(room: RoomSnapshot | null, you: string | null): Player
 
 let announcementId = 0;
 
-function announce(entry: Omit<Announcement, 'id'>): void {
+function announce(entry: Pick<Announcement, 'text' | 'kind' | 'color'> & Partial<Announcement>): void {
   announcementId += 1;
   const id = announcementId;
-  setState({ announcements: [...state.announcements, { ...entry, id }].slice(-MAX_ANNOUNCEMENTS) });
+  const full: Announcement = { detail: null, mine: false, card: null, ...entry, id };
+  setState({ announcements: [...state.announcements, full].slice(-MAX_ANNOUNCEMENTS) });
   window.setTimeout(() => {
     setState({ announcements: state.announcements.filter((a) => a.id !== id) });
   }, ANNOUNCEMENT_MS);
@@ -176,7 +184,7 @@ function forget(): void {
   write(sessionStorage, ROOM_KEY, null);
   setUrlRoom(null);
   session.endRound();
-  setState({ you: null, room: null, offers: [], announcements: [], moods: {}, countdownUntil: null, busy: false });
+  setState({ you: null, room: null, offers: [], announcements: [], moods: {}, statuses: {}, countdownUntil: null, busy: false });
 }
 
 function handleWelcome(error: Error | null, reply?: Welcome): void {
@@ -234,7 +242,7 @@ export function backToLobby(): void {
 function sendCard(choice: 'bonus' | 'malus', target?: string): void {
   if (state.offers.length === 0 || state.room?.phase !== 'playing') return;
   socket.emit('card:use', { choice, target }, (reply) => {
-    if (!reply.ok) announce({ text: reply.error, card: null, kind: 'info', color: null });
+    if (!reply.ok) announce({ text: reply.error, kind: 'info', color: null });
   });
 }
 
@@ -291,8 +299,16 @@ socket.on('round:end', (result) => {
 socket.on('state', ({ id, ...towerState }) => session.setRemote(id, towerState));
 
 socket.on('cards', ({ offers, gained }) => {
-  if (gained) play('gain');
   setState({ offers });
+  if (!gained) return;
+  play('gain');
+  announce({
+    text: 'Nouvelle carte !',
+    detail: 'Un bonus pour toi ou un malus pour un rival : à toi de choisir.',
+    mine: true,
+    kind: 'info',
+    color: findPlayer(state.room, state.you)?.color ?? null,
+  });
 });
 
 socket.on('effect', (effect: Effect) => {
@@ -301,8 +317,11 @@ socket.on('effect', (effect: Effect) => {
   const info = CARDS[effect.card];
   playCard(effect.card);
   session.applyEffect(effect.to, effect.card, effect.kind === 'malus');
+  const onMe = effect.to === state.you;
   announce({
     text: info.announce(from?.name ?? 'Quelqu’un', to?.name ?? 'quelqu’un'),
+    detail: onMe ? (info.onYou ?? info.effect) : info.effect,
+    mine: onMe,
     card: effect.card,
     kind: effect.kind,
     color: from?.color ?? null,
@@ -320,8 +339,9 @@ socket.on('out', ({ id, reason }) => {
   const name = player?.name ?? 'Un joueur';
   if (id === state.you) play('out');
   announce({
-    text: reason === 'hearts' ? `${name} n’a plus de cerises !` : `${name} a quitté la cuisine.`,
-    card: null,
+    text: reason === 'hearts' ? `${name} n’a plus de cerises !` : `${name} a quitté la cuisine.`,
+    detail: reason === 'hearts' ? 'Éliminé pour cette manche.' : null,
+    mine: id === state.you,
     kind: 'info',
     color: player?.color ?? null,
   });

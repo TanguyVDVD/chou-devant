@@ -59,6 +59,12 @@ Règle d'équilibrage : effets courts, jamais éliminatoires à eux seuls.
   présentoir (triangles + pointillés) et la ligne d'arrivée doivent toujours se
   distinguer d'un coup d'œil.
 - Les animations respectent `prefers-reduced-motion`.
+- Vignettes des adversaires : même échelle fixe pour toutes, du présentoir à la
+  ligne de service, sans caméra (`MINI_VIEW_FLOORS` dans `render.ts`), pour que
+  les tours se comparent d'un coup d'œil. Chaque vignette porte le rang, les
+  étages, les cerises, les effets subis (`statusesOf` dans `session.ts`) et le
+  bandeau de visée du malus. Ce qui concerne le joueur lui-même (annonce d'un
+  malus reçu, nouvelle carte) s'affiche plus gros et dit l'effet en clair.
 
 ## Architecture
 
@@ -71,12 +77,13 @@ client/    React + Vite
   src/store.ts          socket, état d'application (useSyncExternalStore), actions
   src/theme.ts          palette, textes des cartes, polices
   src/game/tower.ts     simulation Matter.js de MA tour (classe Tower)
+  src/game/tuning.ts    TOUS les réglages de sensation de jeu (moteur, matière, chute, repos, cartes)
   src/game/session.ts   boucle de jeu, entrées, envoi réseau, dessin de toutes les tours
   src/game/render.ts    dessin canvas d'une tour (grande ou vignette)
   src/game/pieces.ts    formes, drapeaux réseau, tirage « sac de 7 »
   src/game/audio.ts     sons synthétisés
   src/ui/*.tsx          écrans : Home, Lobby, Game, RoundOverlay, Avatar, CardArt
-tests/unit/   vitest : room.test.ts, tower.test.ts
+tests/unit/   vitest : room.test.ts, tower.test.ts, physique.test.ts (stabilité, caramel, cartes)
 tests/e2e/    partie.mjs : partie complète dans Chrome (playwright-core) + joueur robot
 ```
 
@@ -100,7 +107,19 @@ Principes à ne pas casser :
 - **Monde physique** : `y` vers le bas, dessus du présentoir à `y = 0`, une case
   = 32 px (`CELL`). Les hauteurs se comptent en « étages » (cases). La part en
   cours de chute est gardée hors du moteur Matter et placée à la main ; elle
-  n'y entre qu'au moment où elle se pose.
+  n'y entre qu'au moment où elle se pose, amenée au contact exact de son appui
+  et lâchée sans vitesse (même pose en chute lente ou rapide).
+- **Physique déterministe et immobile au repos** (`tower.ts`) : pas fixe de
+  1/60 s découpé en sous-pas, indépendant de l'écran et de la machine. Un corps
+  qui bouge de moins que la tolérance `REST.hold` en un sous-pas est remis en
+  place (Matter fait sinon glisser lentement toute part posée de travers) ;
+  quand plus rien ne bouge, le moteur s'arrête jusqu'au prochain événement
+  (`wake()` : part posée ou retirée, présentoir changé, courant d'air).
+- **Caramel = fusion** : la part se soude au premier contact à tout ce qu'elle
+  touche ; les parts soudées deviennent UN corps Matter rigide (`rebuild()`),
+  statique s'il est soudé au présentoir. La liste `welds` fait foi : retirer une
+  part ou rétrécir le plateau défait les soudures et recompose les corps. Ne pas
+  revenir à des `Constraint` : elles sont élastiques et font dériver la tour.
 
 ## Environnement
 
@@ -140,7 +159,8 @@ npm run test:e2e               # partie complète, BASE_URL=http://localhost:300
 - **Protocole** : tout message réseau est typé dans `shared/protocol.ts`
   (`ClientToServer`, `ServerToClient`). Ajouter un message = l'y déclarer d'abord.
 - **Règles** : aucune valeur de règle en dur ; elles vivent dans `shared/rules.ts`
-  (côté jeu) ou en constantes nommées en tête de fichier (`tower.ts`, `session.ts`).
+  (côté jeu) ou dans `client/src/game/tuning.ts` (sensation de jeu : physique,
+  vitesses, durées des cartes). Après un réglage : `npm test`.
 - **Entrées non fiables** : le serveur est joignable depuis Internet. Tout ce qui
   vient d'un socket est `unknown` : vérifier `typeof` avant usage (jamais
   `String(x)` sur une valeur reçue), borner tailles et nombres
@@ -174,12 +194,14 @@ npm run test:e2e               # partie complète, BASE_URL=http://localhost:300
 4. Illustration dans `client/src/ui/CardArt.tsx`, son dans `CARD_SOUNDS`
    (`client/src/game/audio.ts`).
 5. Si l'effet est minuté et visible : entrée dans `TimedEffect`, `FX_BITS`,
-   `DURATIONS` et `EFFECT_LABELS`, puis dessin dans `render.ts`.
+   `DURATIONS` (`tuning.ts`) et `EFFECT_LABELS`, puis dessin dans `render.ts`.
 
 ## Limites connues
 
 - Équilibrage (vitesse de chute, frottements, durées) réglé sans partie réelle
-  entre humains : à ajuster après les premiers essais.
+  entre humains : à ajuster après les premiers essais, dans `tuning.ts`.
+- Une tour réellement déséquilibrée mais presque à l'arrêt peut mettre plusieurs
+  secondes à s'effondrer, par à-coups (environ 1 pose sur 1000 en jeu aléatoire).
 - Non vérifié : sons à l'oreille, boutons tactiles sur un vrai téléphone,
   Firefox et Safari, tunnel nommé avec un vrai jeton Cloudflare.
 - Les salons vivent en mémoire : ils disparaissent au redémarrage du serveur.

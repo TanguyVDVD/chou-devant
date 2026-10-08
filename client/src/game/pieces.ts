@@ -3,25 +3,28 @@
 // centre d'une case, pour que les parts restent alignées en tournant.
 
 export const CELL = 32;
-export const GIANT_SCALE = 1.5;
-export const BASE_CELLS = 5;
-export const WIDE_BASE_CELLS = 8;
+export { BASE_CELLS, GIANT_SCALE, WIDE_BASE_CELLS } from './tuning';
 
 export interface Piece {
   name: string;
   cells: ReadonlyArray<readonly [number, number]>;
+  /**
+   * Les mêmes cases regroupées en rectangles [gauche, haut, largeur, hauteur]
+   * pour la physique : aucune jointure sur une face plane, donc rien qui accroche.
+   */
+  blocks: ReadonlyArray<readonly [number, number, number, number]>;
   /** vrai si le pivot tombe sur une intersection (décalage d'une demi-case) */
   half: boolean;
 }
 
 export const PIECES: readonly Piece[] = [
-  { name: 'I', cells: [[-1.5, -0.5], [-0.5, -0.5], [0.5, -0.5], [1.5, -0.5]], half: true },
-  { name: 'O', cells: [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]], half: true },
-  { name: 'T', cells: [[-1, 0], [0, 0], [1, 0], [0, -1]], half: false },
-  { name: 'L', cells: [[-1, 0], [0, 0], [1, 0], [1, -1]], half: false },
-  { name: 'J', cells: [[-1, 0], [0, 0], [1, 0], [-1, -1]], half: false },
-  { name: 'S', cells: [[-1, 0], [0, 0], [0, -1], [1, -1]], half: false },
-  { name: 'Z', cells: [[-1, -1], [0, -1], [0, 0], [1, 0]], half: false },
+  { name: 'I', cells: [[-1.5, -0.5], [-0.5, -0.5], [0.5, -0.5], [1.5, -0.5]], blocks: [[-2, -1, 4, 1]], half: true },
+  { name: 'O', cells: [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]], blocks: [[-1, -1, 2, 2]], half: true },
+  { name: 'T', cells: [[-1, 0], [0, 0], [1, 0], [0, -1]], blocks: [[-1.5, -0.5, 3, 1], [-0.5, -1.5, 1, 1]], half: false },
+  { name: 'L', cells: [[-1, 0], [0, 0], [1, 0], [1, -1]], blocks: [[-1.5, -0.5, 3, 1], [0.5, -1.5, 1, 1]], half: false },
+  { name: 'J', cells: [[-1, 0], [0, 0], [1, 0], [-1, -1]], blocks: [[-1.5, -0.5, 3, 1], [-1.5, -1.5, 1, 1]], half: false },
+  { name: 'S', cells: [[-1, 0], [0, 0], [0, -1], [1, -1]], blocks: [[-1.5, -0.5, 2, 1], [-0.5, -1.5, 2, 1]], half: false },
+  { name: 'Z', cells: [[-1, -1], [0, -1], [0, 0], [1, 0]], blocks: [[-1.5, -1.5, 2, 1], [-0.5, -0.5, 2, 1]], half: false },
 ];
 
 /** Drapeaux d'une part dans l'état envoyé sur le réseau. */

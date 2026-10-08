@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import type { PlayerView, RoomSnapshot } from '../../../shared/protocol';
 import { RULES } from '../../../shared/rules';
 import { play } from '../game/audio';
-import type { Direction, Mood } from '../game/session';
+import type { Direction, Mood, Status } from '../game/session';
 import { findPlayer, leaveRoom, opponents, playBonus, playMalus, session, toggleMute, useApp } from '../store';
 import { CARDS, COLORS, PLAYER_COLORS, playerColor } from '../theme';
 import { Avatar, Cherry } from './Avatar';
@@ -38,10 +38,27 @@ function Wins({ player, total }: { player: PlayerView; total: number }): ReactNo
   );
 }
 
-function Floors({ player, finish }: { player: PlayerView; finish: number }): ReactNode {
+/** Classement de la manche : 1 = la plus haute tour. Rien tant que personne n'a posé un étage, ni pour les éliminés. */
+function ranking(players: PlayerView[]): Map<string, number> {
+  const racing = players.filter((p) => p.alive);
+  if (racing.every((p) => p.height < 1)) return new Map();
+  return new Map(racing.map((p) => [p.id, 1 + racing.filter((o) => Math.floor(o.height) > Math.floor(p.height)).length]));
+}
+
+function Place({ place }: { place: number | undefined }): ReactNode {
+  if (!place) return null;
+  return <span className={`place${place === 1 ? ' is-first' : ''}`}>{place === 1 ? '1er' : `${place}e`}</span>;
+}
+
+function Floors({ player, finish, short = false }: { player: PlayerView; finish: number; short?: boolean }): ReactNode {
   return (
-    <span className="floors">
-      <strong>{Math.floor(player.height)}</strong> / {finish} étages
+    <span className="floors" title={`${Math.floor(player.height)} étages sur ${finish}`}>
+      <strong>{Math.floor(player.height)}</strong>
+      <span className="floors__goal">
+        {' '}
+        / {finish}
+        {!short && ' étages'}
+      </span>
     </span>
   );
 }
@@ -149,7 +166,44 @@ function Countdown({ until }: { until: number }): ReactNode {
   );
 }
 
-function Hand({ me, room, rivals }: { me: PlayerView | null; room: RoomSnapshot; rivals: PlayerView[] }): ReactNode {
+function Help({ finish }: { finish: number }): ReactNode {
+  return (
+    <section className="help" aria-label="Comment jouer">
+      <p>
+        <strong>Le but :</strong> monte ta tour jusqu’à la ligne de service ({finish} étages) et tiens-y 3 secondes. Une part qui tombe du présentoir te coûte
+        une cerise.
+      </p>
+      <dl className="keys">
+        <div>
+          <dt>
+            <kbd>←</kbd> <kbd>→</kbd>
+          </dt>
+          <dd>déplacer</dd>
+        </div>
+        <div>
+          <dt>
+            <kbd>↑</kbd>
+          </dt>
+          <dd>tourner</dd>
+        </div>
+        <div>
+          <dt>
+            <kbd>Maj</kbd> + <kbd>←</kbd> <kbd>→</kbd>
+          </dt>
+          <dd>demi-case</dd>
+        </div>
+        <div>
+          <dt>
+            <kbd>↓</kbd>
+          </dt>
+          <dd>accélérer</dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
+function Hand({ me, room, rivals, places }: { me: PlayerView | null; room: RoomSnapshot; rivals: PlayerView[]; places: Map<string, number> }): ReactNode {
   const { offers } = useApp();
   const offer = offers[0];
   if (!me?.alive) return null;
@@ -157,9 +211,12 @@ function Hand({ me, room, rivals }: { me: PlayerView | null; room: RoomSnapshot;
   if (!offer) {
     const next = (Math.floor(me.height / RULES.TIER_HEIGHT) + 1) * RULES.TIER_HEIGHT;
     return (
-      <section className="hand hand--empty" aria-label="Tes cartes">
-        <p>{next < room.finish ? `Prochaine carte à l’étage ${next}.` : 'Plus de carte à gagner : fonce vers la ligne !'}</p>
-      </section>
+      <>
+        <section className="hand hand--empty" aria-label="Tes cartes">
+          <p>{next < room.finish ? `Prochaine carte à l’étage ${next}.` : 'Plus de carte à gagner : fonce vers la ligne !'}</p>
+        </section>
+        <Help finish={room.finish} />
+      </>
     );
   }
 
@@ -169,9 +226,10 @@ function Hand({ me, room, rivals }: { me: PlayerView | null; room: RoomSnapshot;
   return (
     <section className="hand" aria-label="Tes cartes">
       <p className="hand__title">
-        Une carte, deux recettes{offers.length > 1 && <span className="hand__more"> (+{offers.length - 1} en attente)</span>}
+        Choisis une des deux recettes{offers.length > 1 && <span className="hand__more"> (+{offers.length - 1} carte en attente)</span>}
       </p>
       <button type="button" className="card card--bonus" onClick={playBonus}>
+        <span className="card__kind">Bonus pour toi</span>
         <CardArt card={offer.bonus} />
         <span className="card__text">
           <span className="card__name">{bonus.name}</span>
@@ -179,17 +237,26 @@ function Hand({ me, room, rivals }: { me: PlayerView | null; room: RoomSnapshot;
         </span>
         <kbd className="card__key">Espace</kbd>
       </button>
+      <p className="hand__or" aria-hidden="true">
+        ou
+      </p>
       <div className="card card--malus">
+        <span className="card__kind">Malus pour un rival</span>
         <CardArt card={offer.malus} />
         <span className="card__text">
           <span className="card__name">{malus.name}</span>
           <span className="card__effect">{malus.effect}</span>
         </span>
+        <span className="card__hint">Touche la vignette d’un rival pour le lui lancer.</span>
         <span className="card__targets">
           {targets.length === 0 && <span className="card__effect">Plus personne à viser.</span>}
           {targets.map((p) => (
             <button key={p.id} type="button" className="card__target" style={{ '--c': playerColor(p.color) } as CSSProperties} onClick={() => playMalus(p.id)}>
-              <kbd>{rivals.indexOf(p) + 1}</kbd> {p.name}
+              <kbd>{rivals.indexOf(p) + 1}</kbd>
+              <span className="card__target-name">{p.name}</span>
+              <span className="card__target-floors">
+                {Math.floor(p.height)} ét.{places.get(p.id) === 1 && ' · en tête'}
+              </span>
             </button>
           ))}
         </span>
@@ -198,30 +265,55 @@ function Hand({ me, room, rivals }: { me: PlayerView | null; room: RoomSnapshot;
   );
 }
 
-function Rival({ player, rank, room, mood, canTarget }: { player: PlayerView; rank: number; room: RoomSnapshot; mood: Mood; canTarget: boolean }): ReactNode {
+interface RivalProps {
+  player: PlayerView;
+  /** touche 1, 2 ou 3 qui vise ce joueur */
+  slot: number;
+  place: number | undefined;
+  room: RoomSnapshot;
+  mood: Mood;
+  statuses: Status[];
+  /** nom du malus en main, s'il peut être lancé sur ce joueur */
+  aim: string | null;
+}
+
+function Rival({ player, slot, place, room, mood, statuses, aim }: RivalProps): ReactNode {
   const color = playerColor(player.color);
+  const holding = player.alive && mood === 'happy';
   return (
     <button
       type="button"
-      className={`rival${player.alive ? '' : ' is-out'}${canTarget ? ' is-target' : ''}`}
+      className={`rival${player.alive ? '' : ' is-out'}${aim ? ' is-target' : ''}${holding ? ' is-holding' : ''}`}
       style={{ '--c': color } as CSSProperties}
-      disabled={!canTarget}
+      disabled={!aim}
       onClick={() => playMalus(player.id)}
-      aria-label={canTarget ? `Lancer le malus sur ${player.name}` : player.name}
+      aria-label={aim ? `Lancer ${aim} sur ${player.name}` : player.name}
     >
       <span className="rival__head">
-        <kbd className="rival__key">{rank}</kbd>
         <Avatar kind={player.avatar} color={color} mood={mood} size={40} />
         <span className="rival__name">{player.name}</span>
         <Wins player={player} total={room.winsToWin} />
       </span>
+      <span className="rival__score">
+        <Floors player={player} finish={room.finish} short />
+        <Place place={place} />
+      </span>
       <span className="rival__view">
         <TowerCanvas id={player.id} label={`Tour de ${player.name}`} />
+        <Cherries player={player} max={room.maxHearts} />
+        {holding && <span className="rival__alert">Sur la ligne !</span>}
         {!player.alive && <span className="rival__out">{player.connected ? (player.inRound ? 'Éliminé' : 'En attente') : 'Déconnecté'}</span>}
       </span>
-      <span className="rival__foot">
-        <Cherries player={player} max={room.maxHearts} />
-        <Floors player={player} finish={room.finish} />
+      <span className="rival__status">
+        {statuses.map((status) => (
+          <span key={status.label} className={`chip${status.bad ? ' chip--bad' : ''}`}>
+            {status.label}
+          </span>
+        ))}
+      </span>
+      <span className={`rival__aim${aim ? '' : ' is-idle'}`}>
+        <kbd className="rival__key">{slot}</kbd>
+        <span>{aim ? `Lancer ${aim}` : 'pour lui lancer un malus'}</span>
       </span>
     </button>
   );
@@ -232,9 +324,16 @@ function Announcements(): ReactNode {
   return (
     <div className="toasts" aria-live="polite">
       {announcements.map((a) => (
-        <p key={a.id} className={`toast toast--${a.kind}`} style={{ '--c': a.color === null ? COLORS.choco : PLAYER_COLORS[a.color] } as CSSProperties}>
-          {a.card && <CardArt card={a.card} size={30} />}
-          <span>{a.text}</span>
+        <p
+          key={a.id}
+          className={`toast toast--${a.kind}${a.mine ? ' toast--mine' : ''}`}
+          style={{ '--c': a.color === null ? COLORS.choco : PLAYER_COLORS[a.color] } as CSSProperties}
+        >
+          {a.card && <CardArt card={a.card} size={a.mine ? 38 : 30} />}
+          <span className="toast__text">
+            <span>{a.text}</span>
+            {a.detail && <span className="toast__detail">{a.detail}</span>}
+          </span>
         </p>
       ))}
     </div>
@@ -242,12 +341,14 @@ function Announcements(): ReactNode {
 }
 
 export function Game({ room }: { room: RoomSnapshot }): ReactNode {
-  const { you, offers, moods, countdownUntil, muted } = useApp();
+  const { you, offers, moods, statuses, countdownUntil, muted } = useApp();
   const me = findPlayer(room, you);
   const rivals = opponents(room, you);
   const myColor = playerColor(me?.color ?? 0);
   const inRound = room.phase === 'countdown' || room.phase === 'playing';
   const canAct = room.phase === 'playing' && Boolean(me?.alive) && offers.length > 0;
+  const places = ranking(room.players);
+  const malusName = canAct ? CARDS[offers[0].malus].name : null;
 
   useKeyboard();
   useEffect(() => {
@@ -265,7 +366,7 @@ export function Game({ room }: { room: RoomSnapshot }): ReactNode {
       <header className="game__bar">
         <span className="logo logo--tiny">Chou Devant&nbsp;!</span>
         <span className="game__round">
-          Manche {room.round} <span className="game__goal">(première pâtisserie à {room.winsToWin})</span>
+          Manche {room.round} <span className="game__goal">· {room.winsToWin} manches pour gagner la partie</span>
         </span>
         <button type="button" className="btn btn--quiet" aria-pressed={muted} onClick={toggleMute}>
           {muted ? 'Remettre le son' : 'Couper le son'}
@@ -275,7 +376,7 @@ export function Game({ room }: { room: RoomSnapshot }): ReactNode {
         </button>
       </header>
 
-      <div className="game__arena">
+      <div className="game__arena" style={{ '--rivals': rivals.length } as CSSProperties}>
         <aside className="game__side">
           {me && (
             <button type="button" className="mine" disabled={!canAct} onClick={playBonus} aria-label={canAct ? 'Utiliser mon bonus' : me.name}>
@@ -283,10 +384,13 @@ export function Game({ room }: { room: RoomSnapshot }): ReactNode {
               <span className="mine__name">{me.name}</span>
               <Wins player={me} total={room.winsToWin} />
               <Cherries player={me} max={room.maxHearts} />
-              <Floors player={me} finish={room.finish} />
+              <span className="mine__score">
+                <Floors player={me} finish={room.finish} />
+                <Place place={places.get(me.id)} />
+              </span>
             </button>
           )}
-          <Hand me={me} room={room} rivals={rivals} />
+          <Hand me={me} room={room} rivals={rivals} places={places} />
         </aside>
 
         <section className="game__main" aria-label="Ta tour">
@@ -298,7 +402,16 @@ export function Game({ room }: { room: RoomSnapshot }): ReactNode {
 
         <aside className="game__rivals" aria-label="Adversaires">
           {rivals.map((player, i) => (
-            <Rival key={player.id} player={player} rank={i + 1} room={room} mood={moods[player.id] ?? 'idle'} canTarget={canAct && player.alive} />
+            <Rival
+              key={player.id}
+              player={player}
+              slot={i + 1}
+              place={places.get(player.id)}
+              room={room}
+              mood={moods[player.id] ?? 'idle'}
+              statuses={statuses[player.id] ?? []}
+              aim={player.alive ? malusName : null}
+            />
           ))}
         </aside>
       </div>

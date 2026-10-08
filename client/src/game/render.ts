@@ -84,19 +84,23 @@ const OUTLINES: Segment[][] = PIECES.map((piece, type) => {
 });
 
 const MAIN_VIEW_FLOORS = 19;
-const MINI_VIEW_FLOORS = 11;
+// Une vignette montre toute la course, du présentoir à la ligne de service, sans caméra :
+// toutes les vignettes sont à la même échelle, donc les tours se comparent d'un coup d'œil.
+const MINI_VIEW_FLOORS = RULES.FINISH_HEIGHT + 6;
+const MINI_VIEW_CELLS = 9;
 
 /** Échelle d'une vue : toute la largeur de jeu, et assez de hauteur pour voir le présentoir. */
 export function viewScale(width: number, height: number, mini: boolean): number {
   const floors = mini ? MINI_VIEW_FLOORS : MAIN_VIEW_FLOORS;
-  return Math.min(width / (VIEW_CELLS * CELL), height / (floors * CELL));
+  const cells = mini ? MINI_VIEW_CELLS : VIEW_CELLS;
+  return Math.min(width / (cells * CELL), height / (floors * CELL));
 }
 
 /** Où placer la caméra pour garder en vue la zone d'apparition des parts. */
 export function cameraTarget(height: number, width: number, canvasHeight: number, mini: boolean): number {
+  if (mini) return 0;
   const visible = canvasHeight / viewScale(width, canvasHeight, mini);
-  // En petit, on suit seulement le sommet de la tour : pas besoin de la zone d'apparition.
-  const needed = (mini ? height + 6 : Math.max(height + 12, 14)) * CELL;
+  const needed = Math.max(height + 12, 14) * CELL;
   return Math.max(0, needed - (visible - GROUND_MARGIN));
 }
 
@@ -151,7 +155,21 @@ function drawWall(v: View, scene: Scene): void {
   }
   ctx.stroke();
 
-  if (scene.mini) return;
+  if (scene.mini) {
+    // En vignette : la partie de mur déjà gravie est teintée à la couleur du joueur,
+    // et un trait marque chaque palier de carte.
+    const top = v.oy - Math.min(scene.height, RULES.FINISH_HEIGHT + 3) * CELL * s;
+    ctx.fillStyle = scene.color;
+    ctx.globalAlpha = 0.16;
+    ctx.fillRect(0, top, w, v.oy - top);
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = COLORS.choco;
+    for (let floor = RULES.TIER_HEIGHT; floor < RULES.FINISH_HEIGHT; floor += RULES.TIER_HEIGHT) {
+      ctx.fillRect(0, v.oy - floor * CELL * s - s, Math.max(5, w * 0.07), Math.max(1, 2 * s));
+    }
+    ctx.globalAlpha = 1;
+    return;
+  }
 
   // Toise peinte sur le mur : un trait par étage, un repère à chaque palier de carte.
   ctx.font = `${Math.round(13 * s)}px ${FONT_DISPLAY}`;
@@ -229,7 +247,10 @@ function drawFinish(v: View, scene: Scene): void {
   ctx.stroke();
   ctx.restore();
 
-  if (scene.mini) return;
+  if (scene.mini) {
+    drawBell(ctx, w - 9 * s - 6, y - 9 * s, Math.max(4, 7 * s), COLORS.framboise);
+    return;
+  }
   const label = 'Service !';
   ctx.font = `${Math.round(15 * s)}px ${FONT_DISPLAY}`;
   const padding = 9 * s;
@@ -666,7 +687,8 @@ export function drawTower(ctx: CanvasRenderingContext2D, w: number, h: number, s
   if (scene.fx & FX_BITS.wind && scene.windDir !== 0) drawWind(v, scene);
   if (scene.fx & FX_BITS.fog) {
     const left = scene.effects ? scene.effects.fog : 1000;
-    drawFog(v, scene, Math.min(1, left / 400));
+    // Chez un adversaire, la farine se devine sans cacher sa tour : on veut voir où il en est.
+    drawFog(v, scene, scene.mini ? 0.3 : Math.min(1, left / 400));
   }
   if (scene.hold !== null) drawHold(v, scene, scene.hold);
   if (!scene.mini) {

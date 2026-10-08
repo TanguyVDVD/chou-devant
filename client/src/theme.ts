@@ -53,6 +53,8 @@ export interface CardInfo {
   kind: 'bonus' | 'malus';
   /** ce que fait la carte, en une ligne */
   effect: string;
+  /** la même chose dite à celui qui reçoit le malus */
+  onYou?: string;
   /** annonce visible par tous : a = auteur, b = cible */
   announce: (a: string, b: string) => string;
 }
@@ -86,36 +88,42 @@ export const CARDS: Record<CardId, CardInfo> = {
     name: 'Part du chef',
     kind: 'malus',
     effect: 'Sa prochaine part est énorme.',
+    onYou: 'Ta prochaine part est énorme.',
     announce: (a, b) => `${a} sert la part du chef à ${b} !`,
   },
   beurre: {
     name: 'Motte de beurre',
     kind: 'malus',
     effect: 'Sa prochaine part glisse.',
+    onYou: 'Ta prochaine part glisse.',
     announce: (a, b) => `${a} beurre ${b} !`,
   },
   farine: {
     name: 'Nuage de farine',
     kind: 'malus',
     effect: "Le haut de son écran disparaît 6 s.",
+    onYou: 'Le haut de ton écran disparaît 6 s.',
     announce: (a, b) => `${a} enfarine ${b} !`,
   },
   rhum: {
     name: 'Baba au rhum',
     kind: 'malus',
     effect: 'Gauche et droite inversées 5 s.',
+    onYou: 'Ta gauche et ta droite sont inversées 5 s.',
     announce: (a, b) => `${a} fait goûter le rhum à ${b} !`,
   },
   air: {
     name: "Courant d'air",
     kind: 'malus',
     effect: 'Une rafale pousse sa part de côté.',
+    onYou: 'Une rafale pousse ta part de côté.',
     announce: (a, b) => `${a} ouvre la fenêtre chez ${b} !`,
   },
   feu: {
     name: 'Coup de feu',
     kind: 'malus',
     effect: 'Ses parts tombent très vite 8 s.',
+    onYou: 'Tes parts tombent très vite 8 s.',
     announce: (a, b) => `Coup de feu chez ${b}, signé ${a} !`,
   },
 };

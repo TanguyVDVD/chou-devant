@@ -1,18 +1,50 @@
 import type { TowerState } from '../../../shared/protocol';
 import type { CardId } from '../../../shared/rules';
-import { COLORS } from '../theme';
-import { play } from './audio';
-import { BASE_CELLS, CELL, FX_WORRIED, type TimedEffect } from './pieces';
+import { COLORS, mix } from '../theme';
+import { play, playCard } from './audio';
+import { BASE_CELLS, CELL, FLAG, FX_BITS, FX_WORRIED, type TimedEffect } from './pieces';
 import { cameraTarget, drawTower, type Particle, type Popup, type Scene } from './render';
 import { STEP_MS, Tower, type RenderBody, type TowerEvent } from './tower';
+import { INPUT } from './tuning';
 
 export type Mood = 'idle' | 'worried' | 'ouch' | 'happy' | 'out';
 export type Direction = -1 | 1;
 
+/** Un effet en cours chez un joueur, tel qu'affiché sur sa vignette. */
+export interface Status {
+  label: string;
+  bad: boolean;
+}
+
 interface Callbacks {
   sendState: (state: TowerState) => void;
   brickLost: () => void;
-  moods: (moods: Record<string, Mood>) => void;
+  /** mimiques et effets en cours de chaque joueur ; appelé seulement quand ils changent */
+  hud: (moods: Record<string, Mood>, statuses: Record<string, Status[]>) => void;
+}
+
+// Libellés courts : une vignette d'adversaire est étroite.
+const STATUS: Record<TimedEffect, Status> = {
+  slow: { label: 'Neige', bad: false },
+  turbo: { label: 'Feu', bad: true },
+  invert: { label: 'Rhum', bad: true },
+  fog: { label: 'Farine', bad: true },
+  wide: { label: 'Grand plat', bad: false },
+  wind: { label: 'Vent', bad: true },
+};
+
+/** Effets lisibles dans l'état réseau d'une tour : effets minutés et particularités de la part en main. */
+function statusesOf(state: TowerState): Status[] {
+  const list: Status[] = [];
+  for (const name of Object.keys(FX_BITS) as TimedEffect[]) {
+    if (state.fx & FX_BITS[name]) list.push(STATUS[name]);
+  }
+  const active = state.b.find((body) => body[5] & FLAG.ACTIVE);
+  const flags = active ? active[5] : 0;
+  if (flags & FLAG.GIANT) list.push({ label: 'Énorme', bad: true });
+  if (flags & FLAG.SOAPY) list.push({ label: 'Beurre', bad: true });
+  if (flags & FLAG.GLUED) list.push({ label: 'Caramel', bad: false });
+  return list;
 }
 
 interface Remote {
@@ -28,11 +60,10 @@ interface Hold {
 const SEND_EVERY_MS = 66;
 const MOODS_EVERY_MS = 200;
 const MAX_CATCH_UP_STEPS = 90;
-const REPEAT_DELAY_MS = 170;
-const REPEAT_EVERY_MS = 60;
 const HIT_MOOD_MS = 1600;
 const SMOOTHING = 0.35;
 const CAMERA_EASE = 0.08;
+const CARAMEL = mix(COLORS.citron, COLORS.choco, 0.35);
 const NO_EFFECTS: Record<TimedEffect, number> = { slow: 0, turbo: 0, invert: 0, fog: 0, wide: 0, wind: 0 };
 
 function reducedMotion(): boolean {
@@ -183,7 +214,7 @@ export class GameSession {
     if (!this.tower || this.roundOver) return;
     this.held = direction;
     this.heldHalf = half;
-    this.repeatIn = REPEAT_DELAY_MS;
+    this.repeatIn = INPUT.repeatDelayMs;
     this.tower?.move(direction, half);
   }
 
@@ -232,7 +263,7 @@ export class GameSession {
     if (this.held === null) return;
     this.repeatIn -= STEP_MS;
     if (this.repeatIn > 0) return;
-    this.repeatIn = REPEAT_EVERY_MS;
+    this.repeatIn = INPUT.repeatEveryMs;
     tower.move(this.held, this.heldHalf);
   }
 
@@ -255,7 +286,7 @@ export class GameSession {
       case 'lost':
         play('lost');
         this.shake = Math.max(this.shake, 8);
-        this.popup(Math.max(-150, Math.min(150, event.x)), 40, 'Splotch !', COLORS.framboise);
+        this.popup(Math.max(-110, Math.min(110, event.x)), -50, 'Splotch ! −1 cerise', COLORS.framboise);
         this.burst(Math.max(-180, Math.min(180, event.x)), 70, 16, [this.myColor(), COLORS.creme, COLORS.choco], 3.4);
         this.callbacks.brickLost();
         break;
@@ -264,7 +295,10 @@ export class GameSession {
         this.burst(event.x, event.y, 14, [this.myColor(), COLORS.creme], 2.4);
         break;
       case 'glue':
+        // La soudure se voit et s'entend à l'instant où elle prend.
+        playCard('caramel');
         this.popup(event.x, event.y - CELL, 'Collé !', COLORS.choco);
+        this.burst(event.x, event.y + CELL / 2, 18, [CARAMEL, COLORS.citron, COLORS.creme], 2.6);
         break;
       case 'spawn':
         break;
@@ -428,7 +462,10 @@ export class GameSession {
 
   private publishMoods(now: number): void {
     const moods: Record<string, Mood> = {};
+    const statuses: Record<string, Status[]> = {};
     for (const id of this.colors.keys()) {
+      const remote = this.remotes.get(id);
+      statuses[id] = remote && !this.out.has(id) ? statusesOf(remote.state) : [];
       const worried =
         id === this.you ? Boolean(this.tower?.worried) : ((this.remotes.get(id)?.state.fx ?? 0) & FX_WORRIED) !== 0;
       if (this.out.has(id)) moods[id] = 'out';
@@ -437,10 +474,10 @@ export class GameSession {
       else if (worried) moods[id] = 'worried';
       else moods[id] = 'idle';
     }
-    const serialized = JSON.stringify(moods);
+    const serialized = JSON.stringify([moods, statuses]);
     if (serialized === this.lastMoods) return;
     this.lastMoods = serialized;
-    this.callbacks.moods(moods);
+    this.callbacks.hud(moods, statuses);
   }
 
 }
