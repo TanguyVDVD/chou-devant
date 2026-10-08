@@ -1,0 +1,22 @@
+services:
+  # Le jeu : site web et WebSockets sur le même port.
+  game:
+    build: .
+    image: chou-devant
+    init: true
+    restart: unless-stopped
+    ports:
+      # Accessible seulement depuis ce PC, pour tester sur http://localhost:3000.
+      # Les amis passent par le tunnel ci-dessous.
+      - "127.0.0.1:3000:3000"
+
+  # Le tunnel Cloudflare : rend le jeu joignable depuis Internet.
+  # - sans TUNNEL_TOKEN : tunnel rapide, adresse aléatoire en trycloudflare.com
+  # - avec TUNNEL_TOKEN dans .env : tunnel nommé, adresse fixe
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on:
+      game:
+        condition: service_healthy
+    command: tunnel --no-autoupdate --url http://game:3000 ${TUNNEL_TOKEN:+run --token ${TUNNEL_TOKEN}}

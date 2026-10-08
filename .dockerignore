@@ -1,0 +1,10 @@
+node_modules
+dist
+tests
+.git
+.claude
+.impeccable
+.env
+*.md
+lien.sh
+lien.bat
