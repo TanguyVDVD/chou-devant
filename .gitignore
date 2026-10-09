@@ -2,3 +2,5 @@ node_modules/
 dist/
 .env
 tests/e2e/captures/
+.claude
+.impeccable

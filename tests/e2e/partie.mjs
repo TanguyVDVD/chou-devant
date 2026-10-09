@@ -8,7 +8,8 @@ import { io } from 'socket.io-client';
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000';
 const SHOTS = join(dirname(fileURLToPath(import.meta.url)), 'captures');
-const FINISH = 18;
+const FINISH = 20;
+const TIER = 5;
 mkdirSync(SHOTS, { recursive: true });
 
 const checks = [];
@@ -108,9 +109,9 @@ async function main() {
   await lea.locator('.card--bonus').waitFor({ timeout: 60000 });
   await lea.keyboard.up('ArrowDown');
   const leaHeight = await floors(lea.locator('.mine'));
-  assert(leaHeight >= 3, `la tour de Léa monte grâce à la physique (${leaHeight} étages) et lui donne une carte`);
+  assert(leaHeight >= TIER, `la tour de Léa monte grâce à la physique (${leaHeight} étages) et lui donne une carte`);
 
-  await tom.waitForFunction(() => Number(document.querySelector('.rival .floors strong')?.textContent) >= 3, null, { timeout: 5000 });
+  await tom.waitForFunction((tier) => Number(document.querySelector('.rival .floors strong')?.textContent) >= tier, TIER, { timeout: 5000 });
   ok("l'onglet de Tom voit la tour de Léa monter (synchronisation)");
   await shot(lea, '03-jeu-carte-en-main');
 

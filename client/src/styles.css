@@ -574,7 +574,7 @@ kbd {
   grid-area: main;
   position: relative;
   container-type: inline-size;
-  aspect-ratio: 13 / 19;
+  aspect-ratio: 11 / 26;
   min-width: 0;
   max-width: 100%;
   background: var(--mur);
@@ -871,7 +871,7 @@ kbd {
   display: grid;
   grid-auto-flow: column;
   /* largeur bornée par la hauteur disponible : la vignette garde ses proportions */
-  grid-auto-columns: minmax(0, min(280px, calc((100dvh - 17rem) * 9 / 24)));
+  grid-auto-columns: minmax(0, min(280px, calc((100dvh - 17rem) * 9 / 26)));
   gap: 0.8rem;
   align-content: start;
   justify-content: start;
@@ -979,7 +979,7 @@ kbd {
 
 .rival__view {
   position: relative;
-  aspect-ratio: 9 / 24;
+  aspect-ratio: 9 / 26;
   background: var(--mur);
   border: 2px solid var(--choco);
   border-radius: 10px;
@@ -1067,15 +1067,16 @@ kbd {
 
 /* annonces, décompte */
 
+/* les annonces s'empilent au bas de la colonne de gauche : jamais sur la tour */
 .toasts {
-  position: absolute;
-  top: 0.8rem;
-  left: 3cqi;
+  grid-area: side;
+  align-self: end;
+  z-index: 1;
   display: grid;
   gap: 0.4rem;
   justify-items: start;
-  /* laisse libre le coin de la part suivante */
-  width: 74cqi;
+  min-width: 0;
+  margin: 0 6px 8px 2px;
   pointer-events: none;
 }
 
@@ -1084,7 +1085,7 @@ kbd {
   align-items: center;
   gap: 0.5rem;
   padding: 0.35em 0.95em 0.35em 0.6em;
-  font: 400 1.05rem/1.25 var(--font-display);
+  font: 400 0.95rem/1.25 var(--font-display);
   background: var(--creme);
   border: var(--line);
   border-left: 10px solid var(--c);
@@ -1107,7 +1108,7 @@ kbd {
 
 /* ce qui m'arrive à moi se lit en premier */
 .toast--mine {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   border-width: 3px;
   border-left-width: 12px;
 }
@@ -1472,6 +1473,15 @@ kbd {
 
   .toast--mine {
     font-size: 1.05rem;
+  }
+
+  /* pas de colonne libre sur petit écran : les annonces restent en haut de la tour,
+     sans toucher au coin de la part suivante */
+  .toasts {
+    grid-area: main;
+    align-self: start;
+    width: 72%;
+    margin: 0.8rem 0 0 1rem;
   }
 
   .rival__aim {

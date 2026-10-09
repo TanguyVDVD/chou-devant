@@ -13,11 +13,11 @@ les amis rejoignent par un tunnel Cloudflare. Toute l'interface est en français
   déplace et on les tourne pendant leur chute ; une fois posées, elles obéissent
   à la physique (elles basculent, glissent, tombent).
 - **Manche (mode Course)** : le premier dont la tour atteint la ligne de service
-  (18 étages) et y tient 3 secondes gagne la manche. Dernier survivant = gagnant.
+  (20 étages) et y tient 3 secondes gagne la manche. Dernier survivant = gagnant.
 - **Cerises** : 3 vies. Chaque part tombée dans le vide en coûte une ; à zéro,
   le joueur est éliminé de la manche.
 - **Partie** : 3 manches gagnantes, tableau des scores entre les manches.
-- **Cartes** : tous les 3 étages, le joueur reçoit une offre « un bonus pour moi
+- **Cartes** : tous les 5 étages, le joueur reçoit une offre « un bonus pour moi
   OU un malus pour un adversaire » (2 offres en main au maximum).
 
 | Identifiant  | Nom affiché        | Type  | Effet                                        |
@@ -60,8 +60,10 @@ Règle d'équilibrage : effets courts, jamais éliminatoires à eux seuls.
   distinguer d'un coup d'œil.
 - Les animations respectent `prefers-reduced-motion`.
 - Vignettes des adversaires : même échelle fixe pour toutes, du présentoir à la
-  ligne de service, sans caméra (`MINI_VIEW_FLOORS` dans `render.ts`), pour que
-  les tours se comparent d'un coup d'œil. Chaque vignette porte le rang, les
+  ligne de service, sans caméra (`VIEW_FLOORS` dans `render.ts`), pour que
+  les tours se comparent d'un coup d'œil. Ma tour utilise la même hauteur de vue
+  (cadre vertical 11 / 26) : la ligne de service y est visible dès le départ.
+  Les annonces s'empilent au bas de la colonne de gauche, jamais sur la tour. Chaque vignette porte le rang, les
   étages, les cerises, les effets subis (`statusesOf` dans `session.ts`) et le
   bandeau de visée du malus. Ce qui concerne le joueur lui-même (annonce d'un
   malus reçu, nouvelle carte) s'affiche plus gros et dit l'effet en clair.

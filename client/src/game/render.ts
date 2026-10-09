@@ -3,7 +3,7 @@ import { COLORS, EFFECT_LABELS, FONT_DISPLAY, FONT_TEXT, mix } from '../theme';
 import { CELL, FLAG, FX_BITS, FX_WORRIED, GIANT_SCALE, PIECES, localCells, type TimedEffect } from './pieces';
 import { Tower, type RenderBody } from './tower';
 
-const VIEW_CELLS = 13;
+const VIEW_CELLS = 11;
 const GROUND_MARGIN = 3.2 * CELL;
 const COUNTER_Y = 2.6 * CELL;
 const FACE_CELL = 1;
@@ -83,17 +83,16 @@ const OUTLINES: Segment[][] = PIECES.map((piece, type) => {
   return segments;
 });
 
-const MAIN_VIEW_FLOORS = 19;
-// Une vignette montre toute la course, du présentoir à la ligne de service, sans caméra :
-// toutes les vignettes sont à la même échelle, donc les tours se comparent d'un coup d'œil.
-const MINI_VIEW_FLOORS = RULES.FINISH_HEIGHT + 6;
+// Toute vue montre la course entière, du présentoir à la ligne de service. Les vignettes
+// n'ont pas de caméra et sont à la même échelle : les tours se comparent d'un coup d'œil.
+// Les proportions des cadres dans styles.css (11 / 26 et 9 / 26) suivent ces valeurs.
+const VIEW_FLOORS = RULES.FINISH_HEIGHT + 6;
 const MINI_VIEW_CELLS = 9;
 
-/** Échelle d'une vue : toute la largeur de jeu, et assez de hauteur pour voir le présentoir. */
+/** Échelle d'une vue : toute la largeur de jeu, et assez de hauteur pour voir toute la course. */
 export function viewScale(width: number, height: number, mini: boolean): number {
-  const floors = mini ? MINI_VIEW_FLOORS : MAIN_VIEW_FLOORS;
   const cells = mini ? MINI_VIEW_CELLS : VIEW_CELLS;
-  return Math.min(width / (cells * CELL), height / (floors * CELL));
+  return Math.min(width / (cells * CELL), height / (VIEW_FLOORS * CELL));
 }
 
 /** Où placer la caméra pour garder en vue la zone d'apparition des parts. */
@@ -215,23 +214,6 @@ function drawGuides(v: View, scene: Scene): void {
 function drawFinish(v: View, scene: Scene): void {
   const { ctx, w, s } = v;
   const y = v.oy - RULES.FINISH_HEIGHT * CELL * s;
-  if (y < -14 * s && !scene.mini) {
-    // La ligne est encore hors champ : on rappelle où elle se trouve.
-    const left = Math.max(1, Math.ceil(RULES.FINISH_HEIGHT - scene.height));
-    const text = `Ligne de service dans ${left} étage${left > 1 ? 's' : ''}`;
-    ctx.font = `700 ${Math.round(12 * s)}px ${FONT_TEXT}`;
-    const width = ctx.measureText(text).width + 20 * s;
-    const x = v.w - width - 10 * s;
-    const top = v.h - 36 * s;
-    roundRect(ctx, x, top, width, 24 * s, 12 * s);
-    ctx.fillStyle = COLORS.framboise;
-    ctx.fill();
-    ctx.fillStyle = COLORS.creme;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, x + 10 * s, top + 12.5 * s);
-    return;
-  }
   if (y < -40 * s || y > v.h + 40 * s) return;
   const holding = scene.hold !== null;
   ctx.save();
@@ -256,7 +238,8 @@ function drawFinish(v: View, scene: Scene): void {
   const padding = 9 * s;
   const width = ctx.measureText(label).width + padding * 2 + 20 * s;
   const height = 26 * s;
-  const x = w - width - 8 * s;
+  // à gauche : le coin haut droit est pris par la part suivante
+  const x = 8 * s;
   roundRect(ctx, x, y - height / 2, width, height, height / 2);
   ctx.fillStyle = COLORS.framboise;
   ctx.fill();

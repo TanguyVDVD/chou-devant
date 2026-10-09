@@ -61,8 +61,8 @@ export const FALL = {
   /** Hauteur d'apparition au-dessus de la tour, et hauteur minimale, en cases. */
   spawnAbove: 11,
   minSpawnHeight: 13,
-  /** Déplacement latéral maximal depuis le centre, en cases. */
-  moveLimit: 6,
+  /** Déplacement latéral maximal depuis le centre, en cases (la vue en montre 5,5 de chaque côté). */
+  moveLimit: 5,
 };
 
 /** Répétition automatique quand on garde ← ou → enfoncée. */

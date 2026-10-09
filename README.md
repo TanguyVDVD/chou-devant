@@ -88,7 +88,7 @@ vignette pour jouer le bonus.
 
 - Chaque part tombée dans le vide coûte une cerise. À zéro cerise sur trois,
   tu es éliminé de la manche.
-- Tous les 3 étages, tu gagnes une carte. Elle propose un bonus pour toi **ou**
+- Tous les 5 étages, tu gagnes une carte. Elle propose un bonus pour toi **ou**
   un malus pour un adversaire : c'est l'un ou l'autre.
 
 | Bonus              | Effet                                    | Malus            | Effet                                  |

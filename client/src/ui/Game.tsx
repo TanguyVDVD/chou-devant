@@ -397,7 +397,6 @@ export function Game({ room }: { room: RoomSnapshot }): ReactNode {
           {you && <TowerCanvas id={you} label="Ta tour" />}
           {notice && <p className="game__notice">{notice}</p>}
           {countdownUntil !== null && <Countdown until={countdownUntil} />}
-          <Announcements />
         </section>
 
         <aside className="game__rivals" aria-label="Adversaires">
@@ -414,6 +413,8 @@ export function Game({ room }: { room: RoomSnapshot }): ReactNode {
             />
           ))}
         </aside>
+
+        <Announcements />
       </div>
 
       <TouchControls />
