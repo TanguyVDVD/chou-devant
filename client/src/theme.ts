@@ -66,11 +66,11 @@ export const CARDS: Record<CardId, CardInfo> = {
     effect: 'Ta prochaine part se soude à la tour.',
     announce: (a) => `${a} caramélise sa prochaine part !`,
   },
-  plat: {
-    name: 'Grand plat',
+  froid: {
+    name: 'Coup de froid',
     kind: 'bonus',
-    effect: 'Présentoir élargi pendant 10 s.',
-    announce: (a) => `${a} sort le grand plat !`,
+    effect: 'Ta prochaine part se fige sur place : elle ne bouge plus du tout.',
+    announce: (a) => `${a} passe sa prochaine part au grand froid !`,
   },
   fourchette: {
     name: 'Coup de fourchette',
@@ -133,7 +133,6 @@ export const EFFECT_LABELS: Record<TimedEffect, string> = {
   turbo: 'Coup de feu',
   invert: 'Baba au rhum',
   fog: 'Nuage de farine',
-  wide: 'Grand plat',
   wind: "Courant d'air",
 };
 

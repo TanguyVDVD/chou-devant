@@ -151,7 +151,7 @@ const SOUNDS: Record<SoundName, () => void> = {
 // Chaque carte a sa petite signature sonore.
 const CARD_SOUNDS: Record<CardId, () => void> = {
   caramel: () => tone({ freq: 220, to: 660, dur: 0.5, type: 'sawtooth', gain: 0.1 }),
-  plat: () => melody([392, 494, 587], 0.06, { gain: 0.2 }),
+  froid: () => melody([1175, 988, 1319], 0.07, { gain: 0.16 }),
   fourchette: () => {
     tone({ freq: 2400, dur: 0.08, gain: 0.12 });
     hiss({ dur: 0.12, from: 1500, gain: 0.25, at: 0.08 });

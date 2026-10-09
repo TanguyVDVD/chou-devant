@@ -14,12 +14,11 @@ const ART: Record<CardId, ReactNode> = {
       <path d="M13 17h14" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" opacity={0.7} />
     </>
   ),
-  plat: (
+  froid: (
     <>
-      <rect x="4" y="16" width="40" height="7" rx="3.5" fill={COLORS.creme} {...LINE} />
-      <path d="M20 23h8l5 17h-18z" fill={COLORS.creme} {...LINE} />
-      <path d="M9 11l-5 5m35-5l5 5M4 9v0m40 0v0" fill="none" {...LINE} />
-      <path d="M12 11h24" fill="none" {...LINE} strokeDasharray="1 6" />
+      <circle cx="24" cy="24" r="19" fill={mix(COLORS.myrtille, '#ffffff', 0.72)} {...LINE} />
+      <path d="M24 9v30M11 16.5l26 15M37 16.5l-26 15" fill="none" {...LINE} />
+      <path d="M20 12l4 4l4-4M20 36l4-4l4 4" fill="none" {...LINE} strokeWidth={1.8} />
     </>
   ),
   fourchette: (

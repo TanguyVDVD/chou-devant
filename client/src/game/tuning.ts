@@ -6,7 +6,6 @@
 // --- Présentoir et parts ---------------------------------------------------
 
 export const BASE_CELLS = 5;
-export const WIDE_BASE_CELLS = 8;
 export const GIANT_SCALE = 1.5;
 
 // --- Moteur physique -------------------------------------------------------
@@ -61,8 +60,8 @@ export const FALL = {
   /** Hauteur d'apparition au-dessus de la tour, et hauteur minimale, en cases. */
   spawnAbove: 11,
   minSpawnHeight: 13,
-  /** Déplacement latéral maximal depuis le centre, en cases (la vue en montre 5,5 de chaque côté). */
-  moveLimit: 5,
+  /** Déplacement latéral maximal depuis le centre, en cases (la vue en montre 5 de chaque côté). */
+  moveLimit: 4.5,
 };
 
 /** Répétition automatique quand on garde ← ou → enfoncée. */
@@ -107,7 +106,6 @@ export const DURATIONS = {
   turbo: 8000,
   invert: 5000,
   fog: 6000,
-  wide: 10000,
   wind: 1200,
 };
 

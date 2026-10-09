@@ -552,11 +552,11 @@ kbd {
 }
 
 .game__arena {
+  --gap: clamp(0.8rem, 1.6vw, 1.6rem);
   display: grid;
-  /* chaque adversaire garde une vignette lisible : sur un écran moyen, c'est ma tour qui rétrécit un peu */
-  grid-template-columns: minmax(190px, 270px) minmax(0, auto) minmax(calc(var(--rivals, 1) * 124px), 1fr);
-  grid-template-areas: 'side main rivals';
-  gap: clamp(0.8rem, 1.6vw, 1.6rem);
+  grid-template-columns: minmax(190px, 270px) minmax(0, 1fr);
+  grid-template-areas: 'side towers';
+  gap: var(--gap);
   min-height: 0;
 }
 
@@ -570,26 +570,9 @@ kbd {
   padding: 2px 6px 8px 2px;
 }
 
-.game__main {
-  grid-area: main;
-  position: relative;
-  container-type: inline-size;
-  aspect-ratio: 11 / 26;
-  min-width: 0;
-  max-width: 100%;
-  background: var(--mur);
-  border: 3px solid var(--choco);
-  border-radius: 22px;
-  box-shadow:
-    0 0 0 6px var(--me),
-    0 0 0 9px var(--choco),
-    10px 14px 0 6px rgb(58 35 23 / 0.14);
-  margin: 9px;
-  height: calc(100% - 18px);
-  overflow: hidden;
-}
-
 .tower {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
@@ -611,37 +594,6 @@ kbd {
   transform: translateX(-50%);
 }
 
-.mine {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.15rem 0.8rem;
-  align-items: center;
-  padding: 0.7rem 0.9rem;
-  text-align: left;
-  background: var(--creme);
-  border: var(--line);
-  border-left: 12px solid var(--me);
-  border-radius: 18px;
-  box-shadow: var(--box-shadow);
-  cursor: pointer;
-}
-
-.mine:disabled {
-  cursor: default;
-  color: inherit;
-}
-
-.mine .avatar {
-  grid-row: span 4;
-}
-
-.mine__score {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.2rem 0.5rem;
-}
-
 /* rang dans la manche : la plus haute tour est « en tête » */
 
 .place {
@@ -655,11 +607,6 @@ kbd {
 
 .place.is-first {
   background: var(--citron);
-}
-
-.mine__name {
-  font: 400 1.35rem/1.1 var(--font-display);
-  overflow-wrap: anywhere;
 }
 
 .cherries {
@@ -863,26 +810,25 @@ kbd {
   }
 }
 
-/* adversaires : toutes les vignettes sont à la même échelle, du présentoir à la
-   ligne de service, pour comparer les tours d'un coup d'œil */
+/* les tours : une vignette par joueur, la mienne d'abord, toutes de la même largeur
+   (donc à la même échelle) et centrées dans l'écran */
 
-.game__rivals {
-  grid-area: rivals;
+.game__towers {
+  grid-area: towers;
   display: grid;
   grid-auto-flow: column;
-  /* largeur bornée par la hauteur disponible : la vignette garde ses proportions */
-  grid-auto-columns: minmax(0, min(280px, calc((100dvh - 17rem) * 9 / 26)));
-  gap: 0.8rem;
-  align-content: start;
-  justify-content: start;
+  grid-auto-columns: minmax(0, 400px);
+  gap: 1rem;
+  justify-content: center;
   min-height: 0;
-  padding: 2px 4px 8px;
+  /* la place en trop passe à droite, pour équilibrer la colonne de gauche */
+  padding: 8px clamp(8px, calc(100% - var(--players, 2) * 416px), calc(270px + var(--gap))) 10px 8px;
 }
 
-.rival {
+.pcard {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 0.35rem;
-  align-self: start;
   min-width: 0;
   padding: 0.5rem;
   text-align: left;
@@ -893,24 +839,41 @@ kbd {
   box-shadow: var(--box-shadow);
 }
 
-.rival:disabled {
+/* ma tour : cerclée de ma couleur */
+.pcard.mine {
+  box-shadow:
+    0 0 0 5px var(--c),
+    0 0 0 7.5px var(--choco),
+    var(--box-shadow);
+}
+
+.pcard.mine.is-target {
+  cursor: pointer;
+}
+
+.pcard__you {
+  font: 600 0.8rem var(--font-text);
+  opacity: 0.7;
+}
+
+.pcard:disabled {
   color: inherit;
 }
 
-.rival.is-target {
+.pcard.is-target {
   cursor: crosshair;
 }
 
-.rival.is-target:hover {
+.pcard.is-target:hover {
   transform: translateY(-2px);
 }
 
-.rival.is-out .tower {
+.pcard.is-out .tower {
   filter: grayscale(0.8);
 }
 
 /* un adversaire tient la ligne : c'est lui qu'il faut gêner, tout de suite */
-.rival.is-holding {
+.pcard.is-holding {
   outline: 4px solid var(--framboise);
   outline-offset: 2px;
   animation: alarm 500ms ease-in-out infinite alternate;
@@ -922,30 +885,30 @@ kbd {
   }
 }
 
-.rival__head {
+.pcard__head {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0 0.4rem;
   align-items: center;
 }
 
-.rival__head .avatar {
+.pcard__head .avatar {
   grid-row: span 2;
 }
 
-.rival__name {
+.pcard__name {
   font: 400 1.1rem/1.15 var(--font-display);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.rival > * {
+.pcard > * {
   min-width: 0;
 }
 
 /* les cerises de l'adversaire sont posées sur sa vignette, au pied du présentoir */
-.rival__view .cherries {
+.pcard__view .cherries {
   position: absolute;
   bottom: 4px;
   left: 4px;
@@ -955,12 +918,12 @@ kbd {
   border-radius: 99px;
 }
 
-.rival .cherry {
+.pcard .cherry {
   width: 17px;
   height: 17px;
 }
 
-.rival__score {
+.pcard__score {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -968,26 +931,27 @@ kbd {
   min-height: 1.9rem;
 }
 
-.rival__score .floors strong {
+.pcard__score .floors strong {
   font-size: 1.6rem;
 }
 
-.rival__score .floors {
+.pcard__score .floors {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.rival__view {
+.pcard__view {
   position: relative;
-  aspect-ratio: 9 / 26;
+  container-type: inline-size;
+  min-height: 0;
   background: var(--mur);
   border: 2px solid var(--choco);
   border-radius: 10px;
   overflow: hidden;
 }
 
-.rival__out,
-.rival__alert {
+.pcard__out,
+.pcard__alert {
   position: absolute;
   inset: auto 0 38%;
   padding: 0.25em;
@@ -998,21 +962,21 @@ kbd {
   transform: rotate(-4deg) scale(1.05);
 }
 
-.rival__alert {
+.pcard__alert {
   inset: 26% 0 auto;
   color: var(--creme);
   background: var(--framboise);
 }
 
-/* ce que l'adversaire subit en ce moment */
-.rival__status {
+/* ce que l'adversaire subit en ce moment, posé en haut de sa tour */
+.pcard__status {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  right: 5px;
   display: flex;
   flex-wrap: wrap;
-  align-content: start;
   gap: 0.2rem;
-  /* deux rangées réservées : les vignettes restent alignées quand un effet arrive */
-  height: 3.1rem;
-  overflow: hidden;
 }
 
 .chip {
@@ -1029,7 +993,7 @@ kbd {
 }
 
 /* bandeau de visée : s'allume quand un malus est prêt */
-.rival__aim {
+.pcard__aim {
   display: flex;
   align-items: center;
   gap: 0.45rem;
@@ -1045,12 +1009,16 @@ kbd {
   animation: aim 700ms ease-in-out infinite alternate;
 }
 
-.rival__aim kbd {
+.pcard__aim kbd {
   flex: none;
   color: var(--choco);
 }
 
-.rival__aim.is-idle {
+.pcard.mine .pcard__aim:not(.is-idle) {
+  background: var(--pistache);
+}
+
+.pcard__aim.is-idle {
   color: rgb(58 35 23 / 0.7);
   font-weight: 500;
   background: transparent;
@@ -1391,11 +1359,11 @@ kbd {
 /* --- écrans moyens : à trois adversaires, le nom passe avant la frimousse --- */
 
 @media (max-width: 1180px) {
-  .rival__head .avatar {
+  .pcard__head .avatar {
     display: none;
   }
 
-  .rival__head {
+  .pcard__head {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -1429,42 +1397,48 @@ kbd {
 
   .game__arena {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    grid-template-areas: 'rivals' 'main' 'side';
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: 'towers' 'side';
     gap: 0.45rem;
   }
 
-  .game__main {
-    width: calc(100% - 18px);
-    aspect-ratio: auto;
-    justify-self: center;
-  }
-
-  .game__rivals {
-    grid-auto-columns: minmax(0, 1fr);
-    justify-content: stretch;
+  /* les adversaires en rangée, ma tour en grand dessous */
+  .game__towers {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: repeat(var(--rivals, 1), minmax(0, 1fr));
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 0.4rem;
-    padding: 0;
+    padding: 6px;
   }
 
-  .rival {
+  .pcard.mine {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+
+  .pcard.rival {
+    grid-row: 1;
+  }
+
+  .pcard {
     padding: 0.3rem;
     border-top-width: 6px;
     box-shadow: none;
   }
 
-  .rival {
+  .pcard {
     gap: 0.2rem;
   }
 
-  .rival__view {
+  .pcard.rival .pcard__view {
     aspect-ratio: 10 / 8;
   }
 
-  .rival__head .avatar,
-  .rival__head .wins,
-  .rival__aim.is-idle,
-  .rival__aim kbd,
+  .pcard__head .avatar,
+  .pcard__head .wins,
+  .pcard__aim.is-idle,
+  .pcard__aim kbd,
   .floors__goal,
   .toast--info .toast__detail,
   .help {
@@ -1475,44 +1449,37 @@ kbd {
     font-size: 1.05rem;
   }
 
-  /* pas de colonne libre sur petit écran : les annonces restent en haut de la tour,
-     sans toucher au coin de la part suivante */
+  /* pas de colonne libre sur petit écran : les annonces passent sur la rangée des adversaires */
   .toasts {
-    grid-area: main;
+    grid-area: towers;
     align-self: start;
-    width: 72%;
-    margin: 0.8rem 0 0 1rem;
+    margin: 0.4rem;
   }
 
-  .rival__aim {
+  .pcard__aim {
     justify-content: center;
     padding: 0.15rem 0.3rem;
-  }
-
-  .rival__status {
-    flex-wrap: nowrap;
-    height: 1.5rem;
   }
 
   .chip {
     font-size: 0.68rem;
   }
 
-  .rival .cherry {
+  .pcard .cherry {
     width: 13px;
     height: 13px;
   }
 
-  .rival__head {
+  .pcard__head {
     grid-template-columns: 1fr;
   }
 
-  .rival__name,
-  .rival__aim {
+  .pcard__name,
+  .pcard__aim {
     font-size: 0.85rem;
   }
 
-  .rival__score .floors strong {
+  .pcard__score .floors strong {
     font-size: 1.2rem;
   }
 
@@ -1534,19 +1501,6 @@ kbd {
     align-items: stretch;
     max-height: 30dvh;
     padding: 2px;
-  }
-
-  .mine {
-    flex: none;
-    grid-template-columns: 1fr;
-    padding: 0.35rem 0.6rem;
-    border-left-width: 8px;
-    box-shadow: none;
-  }
-
-  .mine .avatar,
-  .mine__name {
-    display: none;
   }
 
   .hand {

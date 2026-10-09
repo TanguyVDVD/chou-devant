@@ -3,7 +3,7 @@
 // centre d'une case, pour que les parts restent alignées en tournant.
 
 export const CELL = 32;
-export { BASE_CELLS, GIANT_SCALE, WIDE_BASE_CELLS } from './tuning';
+export { BASE_CELLS, GIANT_SCALE } from './tuning';
 
 export interface Piece {
   name: string;
@@ -28,9 +28,9 @@ export const PIECES: readonly Piece[] = [
 ];
 
 /** Drapeaux d'une part dans l'état envoyé sur le réseau. */
-export const FLAG = { ACTIVE: 1, SOAPY: 2, GLUED: 4, GIANT: 8, FALLING: 16 } as const;
+export const FLAG = { ACTIVE: 1, SOAPY: 2, GLUED: 4, GIANT: 8, FALLING: 16, FROZEN: 32 } as const;
 
-export type TimedEffect = 'slow' | 'turbo' | 'invert' | 'fog' | 'wide' | 'wind';
+export type TimedEffect = 'slow' | 'turbo' | 'invert' | 'fog' | 'wind';
 
 /** Effets en cours, compressés en un masque de bits pour les autres joueurs. */
 export const FX_BITS: Record<TimedEffect, number> = {
@@ -38,7 +38,6 @@ export const FX_BITS: Record<TimedEffect, number> = {
   turbo: 2,
   invert: 4,
   fog: 8,
-  wide: 16,
   wind: 32,
 };
 /** La tour penche ou s'écroule : sert aux mimiques chez les autres joueurs. */

@@ -158,11 +158,11 @@ function Countdown({ until }: { until: number }): ReactNode {
 
   if (left < -900) return null;
   return (
-    <div className="countdown" aria-live="assertive">
+    <span className="countdown" aria-live="assertive">
       <span key={label} className="countdown__label">
         {label}
       </span>
-    </div>
+    </span>
   );
 }
 
@@ -265,55 +265,65 @@ function Hand({ me, room, rivals, places }: { me: PlayerView | null; room: RoomS
   );
 }
 
-interface RivalProps {
+interface PlayerCardProps {
   player: PlayerView;
-  /** touche 1, 2 ou 3 qui vise ce joueur */
-  slot: number;
+  mine: boolean;
   place: number | undefined;
   room: RoomSnapshot;
   mood: Mood;
   statuses: Status[];
-  /** nom du malus en main, s'il peut être lancé sur ce joueur */
-  aim: string | null;
+  /** touche qui joue la carte : Espace pour mon bonus, 1, 2 ou 3 pour viser cet adversaire */
+  hotkey: string;
+  /** ce que fait un clic sur la vignette, s'il y a une carte à jouer */
+  action: string | null;
+  idle: string;
+  onPlay: () => void;
+  children?: ReactNode;
 }
 
-function Rival({ player, slot, place, room, mood, statuses, aim }: RivalProps): ReactNode {
+/** La vignette d'un joueur : la mienne et celles des adversaires ont la même taille et la même échelle. */
+function PlayerCard({ player, mine, place, room, mood, statuses, hotkey, action, idle, onPlay, children }: PlayerCardProps): ReactNode {
   const color = playerColor(player.color);
-  const holding = player.alive && mood === 'happy';
+  const holding = !mine && player.alive && mood === 'happy';
   return (
     <button
       type="button"
-      className={`rival${player.alive ? '' : ' is-out'}${aim ? ' is-target' : ''}${holding ? ' is-holding' : ''}`}
+      className={`pcard ${mine ? 'mine' : 'rival'}${player.alive ? '' : ' is-out'}${action ? ' is-target' : ''}${holding ? ' is-holding' : ''}`}
       style={{ '--c': color } as CSSProperties}
-      disabled={!aim}
-      onClick={() => playMalus(player.id)}
-      aria-label={aim ? `Lancer ${aim} sur ${player.name}` : player.name}
+      disabled={!action}
+      onClick={onPlay}
+      aria-label={action ? (mine ? action : `${action} sur ${player.name}`) : player.name}
     >
-      <span className="rival__head">
+      <span className="pcard__head">
         <Avatar kind={player.avatar} color={color} mood={mood} size={40} />
-        <span className="rival__name">{player.name}</span>
+        <span className="pcard__name">
+          {player.name}
+          {mine && <span className="pcard__you"> (toi)</span>}
+        </span>
         <Wins player={player} total={room.winsToWin} />
       </span>
-      <span className="rival__score">
+      <span className="pcard__score">
         <Floors player={player} finish={room.finish} short />
         <Place place={place} />
       </span>
-      <span className="rival__view">
-        <TowerCanvas id={player.id} label={`Tour de ${player.name}`} />
+      <span className="pcard__view">
+        <TowerCanvas id={player.id} label={mine ? 'Ta tour' : `Tour de ${player.name}`} />
         <Cherries player={player} max={room.maxHearts} />
-        {holding && <span className="rival__alert">Sur la ligne !</span>}
-        {!player.alive && <span className="rival__out">{player.connected ? (player.inRound ? 'Éliminé' : 'En attente') : 'Déconnecté'}</span>}
+        {/* ce que le joueur subit en ce moment ; chez moi, c'est dessiné dans la tour avec sa jauge */}
+        <span className="pcard__status">
+          {statuses.map((status) => (
+            <span key={status.label} className={`chip${status.bad ? ' chip--bad' : ''}`}>
+              {status.label}
+            </span>
+          ))}
+        </span>
+        {holding && <span className="pcard__alert">Sur la ligne !</span>}
+        {!mine && !player.alive && <span className="pcard__out">{player.connected ? (player.inRound ? 'Éliminé' : 'En attente') : 'Déconnecté'}</span>}
+        {children}
       </span>
-      <span className="rival__status">
-        {statuses.map((status) => (
-          <span key={status.label} className={`chip${status.bad ? ' chip--bad' : ''}`}>
-            {status.label}
-          </span>
-        ))}
-      </span>
-      <span className={`rival__aim${aim ? '' : ' is-idle'}`}>
-        <kbd className="rival__key">{slot}</kbd>
-        <span>{aim ? `Lancer ${aim}` : 'pour lui lancer un malus'}</span>
+      <span className={`pcard__aim${action ? '' : ' is-idle'}`}>
+        <kbd className="pcard__key">{hotkey}</kbd>
+        <span>{action ?? idle}</span>
       </span>
     </button>
   );
@@ -344,7 +354,6 @@ export function Game({ room }: { room: RoomSnapshot }): ReactNode {
   const { you, offers, moods, statuses, countdownUntil, muted } = useApp();
   const me = findPlayer(room, you);
   const rivals = opponents(room, you);
-  const myColor = playerColor(me?.color ?? 0);
   const inRound = room.phase === 'countdown' || room.phase === 'playing';
   const canAct = room.phase === 'playing' && Boolean(me?.alive) && offers.length > 0;
   const places = ranking(room.players);
@@ -362,7 +371,7 @@ export function Game({ room }: { room: RoomSnapshot }): ReactNode {
   }
 
   return (
-    <main className="game" style={{ '--me': myColor } as CSSProperties}>
+    <main className="game">
       <header className="game__bar">
         <span className="logo logo--tiny">Chou Devant&nbsp;!</span>
         <span className="game__round">
@@ -376,43 +385,45 @@ export function Game({ room }: { room: RoomSnapshot }): ReactNode {
         </button>
       </header>
 
-      <div className="game__arena" style={{ '--rivals': rivals.length } as CSSProperties}>
+      <div className="game__arena" style={{ '--players': rivals.length + 1, '--rivals': Math.max(1, rivals.length) } as CSSProperties}>
         <aside className="game__side">
-          {me && (
-            <button type="button" className="mine" disabled={!canAct} onClick={playBonus} aria-label={canAct ? 'Utiliser mon bonus' : me.name}>
-              <Avatar kind={me.avatar} color={myColor} mood={moods[me.id] ?? 'idle'} size={68} />
-              <span className="mine__name">{me.name}</span>
-              <Wins player={me} total={room.winsToWin} />
-              <Cherries player={me} max={room.maxHearts} />
-              <span className="mine__score">
-                <Floors player={me} finish={room.finish} />
-                <Place place={places.get(me.id)} />
-              </span>
-            </button>
-          )}
           <Hand me={me} room={room} rivals={rivals} places={places} />
         </aside>
 
-        <section className="game__main" aria-label="Ta tour">
-          {you && <TowerCanvas id={you} label="Ta tour" />}
-          {notice && <p className="game__notice">{notice}</p>}
-          {countdownUntil !== null && <Countdown until={countdownUntil} />}
-        </section>
-
-        <aside className="game__rivals" aria-label="Adversaires">
+        <section className="game__towers" aria-label="Les tours">
+          {me && (
+            <PlayerCard
+              player={me}
+              mine
+              place={places.get(me.id)}
+              room={room}
+              mood={moods[me.id] ?? 'idle'}
+              statuses={[]}
+              hotkey="Espace"
+              action={canAct ? `Jouer ${CARDS[offers[0].bonus].name}` : null}
+              idle="pour jouer ton bonus"
+              onPlay={playBonus}
+            >
+              {notice && <span className="game__notice">{notice}</span>}
+              {countdownUntil !== null && <Countdown until={countdownUntil} />}
+            </PlayerCard>
+          )}
           {rivals.map((player, i) => (
-            <Rival
+            <PlayerCard
               key={player.id}
               player={player}
-              slot={i + 1}
+              mine={false}
               place={places.get(player.id)}
               room={room}
               mood={moods[player.id] ?? 'idle'}
               statuses={statuses[player.id] ?? []}
-              aim={player.alive ? malusName : null}
+              hotkey={String(i + 1)}
+              action={player.alive && malusName ? `Lancer ${malusName}` : null}
+              idle="pour lui lancer un malus"
+              onPlay={() => playMalus(player.id)}
             />
           ))}
-        </aside>
+        </section>
 
         <Announcements />
       </div>

@@ -9,7 +9,6 @@ import {
   FX_WORRIED,
   GIANT_SCALE,
   PIECES,
-  WIDE_BASE_CELLS,
   centroid,
   makeBag,
   mulberry32,
@@ -51,6 +50,8 @@ interface Brick {
   soapy: boolean;
   /** caramélisée, pas encore soudée */
   wantsGlue: boolean;
+  /** coup de froid : figée sur place dès qu'elle se pose */
+  frozen: boolean;
   placedAt: number;
 }
 
@@ -91,16 +92,16 @@ export type TowerEvent =
   | { type: 'spawn' | 'move' | 'rotate' | 'blocked' }
   | { type: 'land'; x: number; y: number }
   | { type: 'lost'; x: number }
-  | { type: 'eaten' | 'glue'; x: number; y: number };
+  | { type: 'eaten' | 'glue' | 'freeze'; x: number; y: number };
 
 export class Tower {
-  readonly effects: Record<TimedEffect, number> = { slow: 0, turbo: 0, invert: 0, fog: 0, wide: 0, wind: 0 };
-  readonly pending = { glue: false, soap: false, giant: false };
+  readonly effects: Record<TimedEffect, number> = { slow: 0, turbo: 0, invert: 0, fog: 0, wind: 0 };
+  readonly pending = { glue: false, soap: false, giant: false, freeze: false };
   height = 0;
   lean = 0;
   worried = false;
   nextType: number;
-  baseCells = BASE_CELLS;
+  readonly baseCells = BASE_CELLS;
 
   private readonly engine: Matter.Engine;
   private readonly onEvent: (event: TowerEvent) => void;
@@ -208,9 +209,9 @@ export class Tower {
       case 'chef':
         this.pending.giant = true;
         break;
-      case 'plat':
-        this.effects.wide = DURATIONS.wide;
-        this.setBaseCells(WIDE_BASE_CELLS);
+      case 'froid':
+        if (this.active && !this.active.brick.frozen) this.active.brick.frozen = true;
+        else this.pending.freeze = true;
         break;
       case 'fourchette':
         this.eatLast();
@@ -293,8 +294,10 @@ export class Tower {
       brick.wantsGlue = true;
       this.glueQueue -= 1;
     }
+    if (this.pending.freeze) brick.frozen = true;
     this.pending.giant = false;
     this.pending.soap = false;
+    this.pending.freeze = false;
     this.pending.glue = this.glueQueue > 0;
 
     const top = Math.max(this.height + FALL.spawnAbove, FALL.minSpawnHeight) * CELL;
@@ -317,8 +320,9 @@ export class Tower {
 
     if (this.tryPose(active, active.px, active.py + speed, active.r)) {
       if (active.py > LOST.below * CELL) {
-        // Partie dans le vide sans rien toucher : son caramel passe à la suivante.
+        // Partie dans le vide sans rien toucher : son caramel ou son coup de froid passe à la suivante.
         if (active.brick.wantsGlue) this.glueQueue += 1;
+        if (active.brick.frozen) this.pending.freeze = true;
         this.pending.glue = this.glueQueue > 0;
         this.active = null;
         this.spawnIn = FALL.spawnDelayMs;
@@ -351,8 +355,15 @@ export class Tower {
     this.active = null;
     this.spawnIn = FALL.spawnDelayMs;
     this.wake();
-    this.tryWelds();
     const { x, y } = this.poseOf(brick);
+    if (brick.frozen) {
+      // Coup de froid : la part est ancrée là où elle se pose, comme par une soudure
+      // au présentoir. Elle ne bouge plus, quoi qu'il arrive à ce qui la portait.
+      this.welds = [...this.welds, { a: brick, b: null }];
+      this.rebuild();
+      this.onEvent({ type: 'freeze', x, y });
+    }
+    this.tryWelds();
     this.onEvent({ type: 'land', x, y });
   }
 
@@ -404,7 +415,7 @@ export class Tower {
     const com = { x: body.position.x, y: body.position.y };
     const id = this.nextId;
     this.nextId += 1;
-    return { id, type, scale, parts, body, dx: 0, dy: 0, da: 0, com, mass: body.mass, soapy: false, wantsGlue: false, placedAt: 0 };
+    return { id, type, scale, parts, body, dx: 0, dy: 0, da: 0, com, mass: body.mass, soapy: false, wantsGlue: false, frozen: false, placedAt: 0 };
   }
 
   /** Réunit des rectangles en un seul corps rigide. */
@@ -431,21 +442,6 @@ export class Tower {
     brick.body.frictionStatic = MATERIAL.soapyFrictionStatic;
   }
 
-  private setBaseCells(cells: number): void {
-    if (this.baseCells === cells) return;
-    // Le même corps change de largeur : les parts déjà posées dessus gardent leurs appuis.
-    Body.setVertices(this.base, this.makeBase(cells).vertices);
-    this.baseCells = cells;
-    // Une soudure au présentoir lâche si le plateau n'est plus sous la part.
-    const half = (cells * CELL) / 2;
-    this.welds = this.welds.filter(
-      (weld) =>
-        weld.b !== null ||
-        weld.a.parts.some((p) => p.bounds.max.y > -WELD.reach && p.bounds.max.x > -half && p.bounds.min.x < half),
-    );
-    this.rebuild();
-  }
-
   // --- moteur --------------------------------------------------------------
 
   private wake(): void {
@@ -456,7 +452,7 @@ export class Tower {
   /**
    * Avance la physique d'un pas, puis fige la tour dès qu'elle ne bouge plus :
    * une tour au repos reste strictement immobile jusqu'au prochain événement
-   * (part posée, part retirée, présentoir changé, courant d'air).
+   * (part posée, part retirée, courant d'air).
    */
   private simulate(): void {
     const windy = this.effects.wind > 0;
@@ -504,7 +500,6 @@ export class Tower {
     for (const name of Object.keys(this.effects) as TimedEffect[]) {
       if (this.effects[name] <= 0) continue;
       this.effects[name] = Math.max(0, this.effects[name] - STEP_MS);
-      if (name === 'wide' && this.effects.wide === 0) this.setBaseCells(BASE_CELLS);
       if (name === 'wind' && this.effects.wind === 0 && this.active) {
         // La rafale a décalé la part : elle retrouve la grille des demi-cases.
         const { active } = this;
@@ -712,7 +707,8 @@ export class Tower {
     let flags = 0;
     if (active) flags |= FLAG.ACTIVE;
     if (brick.soapy) flags |= FLAG.SOAPY;
-    if (brick.wantsGlue || this.isWelded(brick)) flags |= FLAG.GLUED;
+    if (brick.frozen) flags |= FLAG.FROZEN;
+    else if (brick.wantsGlue || this.isWelded(brick)) flags |= FLAG.GLUED;
     if (brick.scale > 1) flags |= FLAG.GIANT;
     if (!active && brick.body.speed > 3) flags |= FLAG.FALLING;
     // L'affichage attend le centre des cases, à un cheveu du centre de masse physique.

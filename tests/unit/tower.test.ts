@@ -107,12 +107,13 @@ test('le coup de fourchette retire la dernière part posée', () => {
   expect(tower.bodies().filter((b) => !(b.flags & FLAG.ACTIVE)).length).toBe(placed - 1);
 });
 
-test('le grand plat élargit le présentoir 10 secondes puis revient', () => {
-  const { tower } = setup();
-  tower.applyCard('plat');
-  expect(tower.baseCells).toBe(8);
-  run(tower, 11 * SECOND);
-  expect(tower.baseCells).toBe(5);
+test('le coup de froid fige la prochaine part au moment où elle se pose', () => {
+  const { tower, events } = setup();
+  tower.applyCard('froid');
+  dropBricks(tower, events, 1);
+  expect(count(events, 'freeze')).toBe(1);
+  expect(tower.bodies()[0].flags & FLAG.FROZEN).toBeTruthy();
+  expect(tower.pending.freeze).toBe(false);
 });
 
 test('la part du chef est géante et le caramel la soude', () => {

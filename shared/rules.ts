@@ -19,7 +19,7 @@ export const RULES = {
   NAME_MAX: 14,
 } as const;
 
-export const BONUS = ['caramel', 'plat', 'fourchette', 'neige'] as const;
+export const BONUS = ['caramel', 'froid', 'fourchette', 'neige'] as const;
 export const MALUS = ['chef', 'beurre', 'farine', 'rhum', 'air', 'feu'] as const;
 export const AVATARS = ['chou', 'macaron', 'eclair', 'tartelette', 'cannele', 'madeleine'] as const;
 

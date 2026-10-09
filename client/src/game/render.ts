@@ -3,7 +3,7 @@ import { COLORS, EFFECT_LABELS, FONT_DISPLAY, FONT_TEXT, mix } from '../theme';
 import { CELL, FLAG, FX_BITS, FX_WORRIED, GIANT_SCALE, PIECES, localCells, type TimedEffect } from './pieces';
 import { Tower, type RenderBody } from './tower';
 
-const VIEW_CELLS = 11;
+const VIEW_CELLS = 10;
 const GROUND_MARGIN = 3.2 * CELL;
 const COUNTER_Y = 2.6 * CELL;
 const FACE_CELL = 1;
@@ -47,7 +47,7 @@ export interface Scene {
   windDir: number;
   next: number | null;
   effects: Record<TimedEffect, number> | null;
-  pending: { glue: boolean; soap: boolean; giant: boolean } | null;
+  pending: { glue: boolean; soap: boolean; giant: boolean; freeze: boolean } | null;
   particles: Particle[];
   popups: Popup[];
   shakeX: number;
@@ -83,22 +83,20 @@ const OUTLINES: Segment[][] = PIECES.map((piece, type) => {
   return segments;
 });
 
-// Toute vue montre la course entière, du présentoir à la ligne de service. Les vignettes
-// n'ont pas de caméra et sont à la même échelle : les tours se comparent d'un coup d'œil.
-// Les proportions des cadres dans styles.css (11 / 26 et 9 / 26) suivent ces valeurs.
-const VIEW_FLOORS = RULES.FINISH_HEIGHT + 6;
-const MINI_VIEW_CELLS = 9;
+// Hauteur minimale montrée, en étages : du comptoir à la zone d'apparition des parts.
+const MIN_VIEW_FLOORS = 18;
 
-/** Échelle d'une vue : toute la largeur de jeu, et assez de hauteur pour voir toute la course. */
-export function viewScale(width: number, height: number, mini: boolean): number {
-  const cells = mini ? MINI_VIEW_CELLS : VIEW_CELLS;
-  return Math.min(width / (cells * CELL), height / (VIEW_FLOORS * CELL));
+/**
+ * Échelle d'une vue, la même pour ma tour et pour celles des adversaires : toute la
+ * largeur de jeu. Une vue trop basse rétrécit pour garder le présentoir et la part en vue.
+ */
+export function viewScale(width: number, height: number): number {
+  return Math.min(width / (VIEW_CELLS * CELL), height / (MIN_VIEW_FLOORS * CELL));
 }
 
-/** Où placer la caméra pour garder en vue la zone d'apparition des parts. */
-export function cameraTarget(height: number, width: number, canvasHeight: number, mini: boolean): number {
-  if (mini) return 0;
-  const visible = canvasHeight / viewScale(width, canvasHeight, mini);
+/** Où placer la caméra pour garder en vue la zone d'apparition des parts : elle suit la tour qui monte. */
+export function cameraTarget(height: number, width: number, canvasHeight: number): number {
+  const visible = canvasHeight / viewScale(width, canvasHeight);
   const needed = Math.max(height + 12, 14) * CELL;
   return Math.max(0, needed - (visible - GROUND_MARGIN));
 }
@@ -366,6 +364,7 @@ function drawBrick(v: View, scene: Scene, body: RenderBody): void {
   const active = (body.flags & FLAG.ACTIVE) !== 0;
   const soapy = (body.flags & FLAG.SOAPY) !== 0;
   const glued = (body.flags & FLAG.GLUED) !== 0;
+  const frozen = (body.flags & FLAG.FROZEN) !== 0;
   const falling = (body.flags & FLAG.FALLING) !== 0;
   const scale = body.flags & FLAG.GIANT ? GIANT_SCALE : 1;
   const size = CELL * scale * s;
@@ -427,8 +426,9 @@ function drawBrick(v: View, scene: Scene, body: RenderBody): void {
   }
 
   trace();
-  if (glued) {
-    ctx.strokeStyle = mix(COLORS.citron, COLORS.choco, 0.35);
+  if (glued || frozen) {
+    // liseré : caramel pour une part soudée, givre pour une part figée
+    ctx.strokeStyle = frozen ? mix(COLORS.myrtille, '#ffffff', 0.55) : mix(COLORS.citron, COLORS.choco, 0.35);
     ctx.lineWidth = 7 * s;
     ctx.stroke();
     trace();
@@ -608,6 +608,7 @@ function drawChips(v: View, scene: Scene): void {
       chips.push({ label: EFFECT_LABELS[name], ratio: left / Tower.duration(name), bad });
     }
   }
+  if (scene.pending?.freeze) chips.push({ label: 'Prochaine part : figée', ratio: null, bad: false });
   if (scene.pending?.glue) chips.push({ label: 'Prochaine part : caramel', ratio: null, bad: false });
   if (scene.pending?.soap) chips.push({ label: 'Prochaine part : beurrée', ratio: null, bad: true });
   if (scene.pending?.giant) chips.push({ label: 'Prochaine part : énorme', ratio: null, bad: true });
@@ -643,7 +644,7 @@ function drawChips(v: View, scene: Scene): void {
 
 /** Dessine une tour (la mienne en grand, ou celle d'un adversaire en petit). */
 export function drawTower(ctx: CanvasRenderingContext2D, w: number, h: number, scene: Scene): void {
-  const s = viewScale(w, h, scene.mini);
+  const s = viewScale(w, h);
   const v: View = {
     ctx,
     w,

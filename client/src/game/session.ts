@@ -29,7 +29,6 @@ const STATUS: Record<TimedEffect, Status> = {
   turbo: { label: 'Feu', bad: true },
   invert: { label: 'Rhum', bad: true },
   fog: { label: 'Farine', bad: true },
-  wide: { label: 'Grand plat', bad: false },
   wind: { label: 'Vent', bad: true },
 };
 
@@ -44,6 +43,7 @@ function statusesOf(state: TowerState): Status[] {
   if (flags & FLAG.GIANT) list.push({ label: 'Énorme', bad: true });
   if (flags & FLAG.SOAPY) list.push({ label: 'Beurre', bad: true });
   if (flags & FLAG.GLUED) list.push({ label: 'Caramel', bad: false });
+  if (flags & FLAG.FROZEN) list.push({ label: 'Froid', bad: false });
   return list;
 }
 
@@ -64,7 +64,8 @@ const HIT_MOOD_MS = 1600;
 const SMOOTHING = 0.35;
 const CAMERA_EASE = 0.08;
 const CARAMEL = mix(COLORS.citron, COLORS.choco, 0.35);
-const NO_EFFECTS: Record<TimedEffect, number> = { slow: 0, turbo: 0, invert: 0, fog: 0, wide: 0, wind: 0 };
+const FROST = mix(COLORS.myrtille, '#ffffff', 0.55);
+const NO_EFFECTS: Record<TimedEffect, number> = { slow: 0, turbo: 0, invert: 0, fog: 0, wind: 0 };
 
 function reducedMotion(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -300,6 +301,11 @@ export class GameSession {
         this.popup(event.x, event.y - CELL, 'Collé !', COLORS.choco);
         this.burst(event.x, event.y + CELL / 2, 18, [CARAMEL, COLORS.citron, COLORS.creme], 2.6);
         break;
+      case 'freeze':
+        playCard('froid');
+        this.popup(event.x, event.y - CELL, 'Figé !', COLORS.myrtille);
+        this.burst(event.x, event.y + CELL / 2, 18, [FROST, '#ffffff', COLORS.creme], 2.6);
+        break;
       case 'spawn':
         break;
     }
@@ -382,7 +388,7 @@ export class GameSession {
   }
 
   private camera(id: string, heightInFloors: number, width: number, height: number): number {
-    const target = cameraTarget(heightInFloors, width, height, id !== this.you);
+    const target = cameraTarget(heightInFloors, width, height);
     const current = this.cameras.get(id) ?? target;
     const next = current + (target - current) * CAMERA_EASE;
     this.cameras.set(id, next);

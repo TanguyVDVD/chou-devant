@@ -94,7 +94,7 @@ vignette pour jouer le bonus.
 | Bonus              | Effet                                    | Malus            | Effet                                  |
 |--------------------|------------------------------------------|------------------|----------------------------------------|
 | Caramel            | la prochaine part se soude à la tour     | Part du chef     | sa prochaine part est énorme           |
-| Grand plat         | présentoir élargi pendant 10 s           | Motte de beurre  | sa prochaine part glisse               |
+| Coup de froid      | la prochaine part se fige sur place      | Motte de beurre  | sa prochaine part glisse               |
 | Coup de fourchette | supprime la dernière part posée          | Nuage de farine  | masque le haut de son écran 6 s        |
 | Blancs en neige    | chute lente pendant 8 s                  | Baba au rhum     | gauche et droite inversées 5 s         |
 |                    |                                          | Courant d'air    | une rafale pousse sa part de côté      |

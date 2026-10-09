@@ -267,16 +267,27 @@ test('la soudure se termine proprement quand la part ou son appui disparaît', (
   expect(placed()).toHaveLength(2);
 });
 
-test('une part soudée sur le bord du grand plat tombe quand il rétrécit', () => {
-  const { tower, place, wait, placed, count } = setup();
-  tower.applyCard('plat');
-  place(O, { dx: 6, card: 'caramel' });
-  expect(count('glue')).toBe(1);
-  expect(placed()).toHaveLength(1);
-  wait(12 * SECOND);
-  expect(tower.baseCells).toBe(5);
-  expect(placed()).toHaveLength(0);
-  expect(count('lost')).toBe(1);
+test('une part figée par le coup de froid ne bascule pas, même chargée en porte-à-faux', () => {
+  const overhang = (card?: CardId) => {
+    const game = setup();
+    game.place(O);
+    game.settle();
+    game.place(O);
+    game.settle();
+    game.place(I, { dx: 7, card }); // la barre dépasse largement du carré qui la porte
+    game.settle();
+    const bar = game.placed()[2];
+    game.place(O, { dx: 12 }); // un carré tout au bout de la barre
+    game.settle();
+    return { ...game, bar };
+  };
+  expect(overhang().count('lost')).toBeGreaterThan(0);
+
+  const frozen = overhang('froid');
+  expect(frozen.count('freeze')).toBe(1);
+  expect(frozen.count('lost')).toBe(0);
+  expect(frozen.bar.flags & FLAG.FROZEN).toBeTruthy();
+  expect(frozen.placed()[2]).toEqual(frozen.bar);
 });
 
 // --- autres cartes ---------------------------------------------------------
@@ -367,14 +378,14 @@ test('le coup de fourchette réveille la tour : ce qui reposait sur la part mang
   expect(tower.height).toBeCloseTo(63 / 32, 1);
 });
 
-test('quand le grand plat rétrécit, les parts posées hors du présentoir tombent', () => {
-  const { tower, place, wait, placed, count } = setup();
-  tower.applyCard('plat');
-  place(O, { dx: 6 });
-  place(O);
-  expect(placed()).toHaveLength(2);
-  wait(12 * SECOND);
-  expect(tower.baseCells).toBe(5);
+test('un coup de froid parti dans le vide passe à la part suivante', () => {
+  const { tower, place, settle, placed, count } = setup();
+  place(O, { dx: 12, card: 'froid' });
   expect(count('lost')).toBe(1);
-  expect(placed()).toHaveLength(1);
+  expect(count('freeze')).toBe(0);
+  expect(tower.pending.freeze).toBe(true);
+  place(O);
+  settle();
+  expect(count('freeze')).toBe(1);
+  expect(placed()[0].flags & FLAG.FROZEN).toBeTruthy();
 });

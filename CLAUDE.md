@@ -23,7 +23,7 @@ les amis rejoignent par un tunnel Cloudflare. Toute l'interface est en français
 | Identifiant  | Nom affiché        | Type  | Effet                                        |
 |--------------|--------------------|-------|----------------------------------------------|
 | `caramel`    | Caramel            | bonus | la prochaine part se soude à la tour         |
-| `plat`       | Grand plat         | bonus | présentoir élargi (5 → 8 cases) pendant 10 s |
+| `froid`      | Coup de froid      | bonus | la prochaine part se fige là où elle se pose |
 | `fourchette` | Coup de fourchette | bonus | supprime la dernière part posée              |
 | `neige`      | Blancs en neige    | bonus | chute lente 8 s                              |
 | `chef`       | Part du chef       | malus | prochaine part géante (×1,5)                 |
@@ -59,11 +59,12 @@ Règle d'équilibrage : effets courts, jamais éliminatoires à eux seuls.
   présentoir (triangles + pointillés) et la ligne d'arrivée doivent toujours se
   distinguer d'un coup d'œil.
 - Les animations respectent `prefers-reduced-motion`.
-- Vignettes des adversaires : même échelle fixe pour toutes, du présentoir à la
-  ligne de service, sans caméra (`VIEW_FLOORS` dans `render.ts`), pour que
-  les tours se comparent d'un coup d'œil. Ma tour utilise la même hauteur de vue
-  (cadre vertical 11 / 26) : la ligne de service y est visible dès le départ.
-  Les annonces s'empilent au bas de la colonne de gauche, jamais sur la tour. Chaque vignette porte le rang, les
+- Vignettes : une par joueur (`PlayerCard` dans `Game.tsx`), la mienne d'abord,
+  toutes de la même largeur donc à la même échelle (`viewScale` dans
+  `render.ts`), centrées dans l'écran quel que soit le nombre de joueurs. Chaque
+  vue est verticale et sa caméra suit la tour qui monte (`cameraTarget`), chez
+  moi comme chez les adversaires. Les annonces s'empilent au bas de la colonne
+  de gauche, jamais sur une tour. Chaque vignette porte le rang, les
   étages, les cerises, les effets subis (`statusesOf` dans `session.ts`) et le
   bandeau de visée du malus. Ce qui concerne le joueur lui-même (annonce d'un
   malus reçu, nouvelle carte) s'affiche plus gros et dit l'effet en clair.
@@ -116,11 +117,12 @@ Principes à ne pas casser :
   qui bouge de moins que la tolérance `REST.hold` en un sous-pas est remis en
   place (Matter fait sinon glisser lentement toute part posée de travers) ;
   quand plus rien ne bouge, le moteur s'arrête jusqu'au prochain événement
-  (`wake()` : part posée ou retirée, présentoir changé, courant d'air).
+  (`wake()` : part posée ou retirée, courant d'air).
 - **Caramel = fusion** : la part se soude au premier contact à tout ce qu'elle
   touche ; les parts soudées deviennent UN corps Matter rigide (`rebuild()`),
   statique s'il est soudé au présentoir. La liste `welds` fait foi : retirer une
-  part ou rétrécir le plateau défait les soudures et recompose les corps. Ne pas
+  part défait ses soudures et recompose les corps. Le coup de froid réutilise ce
+  mécanisme : une part figée est soudée au présentoir (donc statique) sans contact. Ne pas
   revenir à des `Constraint` : elles sont élastiques et font dériver la tour.
 
 ## Environnement
